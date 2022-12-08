@@ -43,7 +43,7 @@ We provide acquirement approach of `Data` and `Protein language model`.
 
 ### Data
 <span id="ss-filter-data"></span>
-We have released our prepared data **ss_filter_data** in [Webserver source](http://issubmission.sjtu.edu.cn/ss-filter/static/download/ss_filter_data.tar.gz).
+We have released our prepared data **ss_filter_data** in [Webserver source](https://issubmission.sjtu.edu.cn/ss-filter/static/download/ss_filter_data.tar.gz).
 ```bash
 # Put it in home directory and tar
 tar zxvf ss_filter_data.tar.gz
