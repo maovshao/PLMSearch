@@ -66,7 +66,7 @@ cd ../../..
 python ss_filter/main.py
 ```
 
-You can also follow the steps in `main.ipynb` to get the same result with better visualization.
+To get the same result with better visualization, follow the steps in [main.ipynb](main.ipynb).
 
 **Notice: the results are saved in** `scientist_figures/`.
 
@@ -74,9 +74,9 @@ You can also follow the steps in `main.ipynb` to get the same result with better
 <span id="pipeline"></span>
 Search your own protein sequences against `themselves` and [Swiss-Prot](https://www.uniprot.org/). 
 
-- For `GPU` users, follow the example in `pipeline.ipynb`.
+- For `GPU` users, follow the example in [pipeline.ipynb](pipeline.ipynb).
 
-- For `CPU ONLY` users, follow the example in `pipeline_cpu.ipynb`.
+- For `CPU ONLY` users, follow the example in [pipeline_cpu.ipynb](pipeline_cpu.ipynb).
 
 **Notice: the inputs and outputs of the example are all saved in** `example/`.
 
