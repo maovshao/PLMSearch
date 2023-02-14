@@ -2,7 +2,7 @@
 Created on 2021/12/28
 @author liuwei
 """
-from ss_filter_util.statistics_util import get_input_output, cluster_statistics, ss_mat_statistics, esm_similarity_statistics, ss_predictor_statistics, get_miss_wrong_statistics, venn_graph3, pair_list_statistics, scop_roc, tmscore_aupr, tmscore_precision_recall
+from ss_filter_util.statistics_util import get_input_output, cluster_statistics, ss_mat_statistics, esm_similarity_statistics, ss_predictor_statistics, get_miss_wrong_statistics, venn_graph3, pair_list_statistics, scop_roc, tmscore_aupr, tmscore_precision_recall, scope_similarity_statistics
 
 if __name__ == '__main__':
     # Pfam Compare(scope)
@@ -246,3 +246,9 @@ if __name__ == '__main__':
         query_protein_list_path = "./ss_filter_data/swissprot_to_swissprot/query_protein_list.txt"
         target_protein_list_path = "./ss_filter_data/swissprot_to_swissprot/target_protein_list.txt"
         pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_filename, query_protein_list_path, target_protein_list_path, ss_mat_path)
+    
+    #scope_similarity_statistics
+    similarity_file = "./ss_filter_data/scope_test/prefilter_result/ss_sort_cos"
+    fold_file = "./ss_filter_data/scope_test/scop_lookup.tsv"
+    plot_name = "./scientist_figures/scope_similarity_statistics"
+    scope_similarity_statistics(similarity_file, fold_file, plot_name)

@@ -30,7 +30,9 @@ def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_resu
         x1_tensor = x1_tensor.to(device)
         predict_score_tensor = model(x0_tensor, x1_tensor)
         if (nocos == False):
-            predict_score_tensor = predict_score_tensor * F.cosine_similarity(x0_tensor, x1_tensor)
+            cos_tensor = F.cosine_similarity(x0_tensor, x1_tensor)
+            predict_score_tensor = predict_score_tensor * cos_tensor
+            cos_tensor = cos_tensor.tolist()
         predict_score_tensor = predict_score_tensor.tolist()
 
         for index in range(len(protein1_list)):
@@ -40,6 +42,9 @@ def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_resu
                 predict_score = 1
             else:
                 predict_score = predict_score_tensor[index]
+            if (nocos == False):
+                if (cos_tensor[index] == 1):
+                    predict_score = 1
 
             if ((threshold!= None) and (predict_score < threshold)):
                 continue

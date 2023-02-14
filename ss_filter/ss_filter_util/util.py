@@ -5,6 +5,7 @@ Created on 2021/10/24
 import json
 from tqdm import tqdm, trange
 from Bio import SeqIO
+from pathlib import Path
 
 def get_pid_list(pid_list_file):
     try:
@@ -92,3 +93,7 @@ def get_prefilter_list_without_self(prefilter_result):
             score = eval(line_list[2].replace('inf', '1e30'))
             prefilter_list.append(((protein1, protein2), score))
     return prefilter_list
+
+def make_parent_dir(path):
+    filepath = Path(path)
+    filepath.parent.mkdir(parents=True, exist_ok=True)

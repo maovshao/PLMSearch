@@ -1,0 +1,13 @@
+# Folders #
+###########
+__pycache__/
+.ipynb_checkpoints/
+.vscode/
+ss_filter_data/
+scientist_figures/*
+!scientist_figures/plddt_statistics/
+!scientist_figures/workflow_img/
+
+# Junk #
+########
+.DS_Store*

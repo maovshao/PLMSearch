@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib_venn import venn3
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import average_precision_score
-from ss_filter_util.util import get_pid_list, get_index_protein_dic, get_protein_index_dic, read_fasta, get_prefilter_list_without_self
+from ss_filter_util.util import get_pid_list, get_index_protein_dic, get_protein_index_dic, read_fasta, get_prefilter_list_without_self, make_parent_dir
 from ss_filter_util.esm_similarity_filter import esm_similarity_filiter
 from ss_filter_util.esm_ss_predict import esm_ss_predict_tri
 
@@ -107,11 +107,13 @@ def cluster_statistics(pfam_result_file, clan_file_path, result_path):
     
 
     fig_name = result_path + 'pfamclan_cluster_statistics.png'
+    make_parent_dir(fig_name)
     fig.savefig(fig_name)
     plt.show()
     plt.close()
 
     statistics_name = ''.join([x+'.' for x in fig_name.split('.')[:-1]]) + "txt"
+    make_parent_dir(statistics_name)
     with open(statistics_name, 'w') as f:
         f.write(f"cluster_num = {cluster_num}\n")
         f.write(f"total_tmalign_times(maybe with overlap) = {total_tmalign_times}\n")
@@ -164,11 +166,13 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
         ax = sns.displot(score_array, bins = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], linewidth=0)
         ax.set(xlim=(0, 1))
         fig_name = todo_fig_list[index]
+        make_parent_dir(fig_name)
         plt.savefig(fig_name)
         plt.show()
         plt.close()
 
         statistics_name = ''.join([x+'.' for x in fig_name.split('.')[:-1]]) + "txt"
+        make_parent_dir(statistics_name)
         with open(statistics_name, 'w') as f:
             f.write(f'ss_mat_num_of_values:{score_array.shape[0]}\n')
             f.write(f'ss_mat_avg_score:{score_avg}\n')
@@ -213,6 +217,7 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
     ax.add_legend(title='Cluster method')
     plt.xlim(0,1)
     plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    make_parent_dir(ridge_plot_name)
     plt.savefig(ridge_plot_name)
     plt.show()
     plt.close()
@@ -273,6 +278,7 @@ def esm_similarity_statistics(query_esm_filename, target_esm_filename, query_pro
     plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
     plt.ylim(0,1)
     plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    make_parent_dir(fig_name)
     plt.savefig(fig_name)
     plt.show()
     plt.close()
@@ -350,6 +356,7 @@ def ss_predictor_statistics(query_esm_filename, target_esm_filename, query_prote
     plt.ylim(0,1)
     plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
 
+    make_parent_dir(fig_name)
     plt.savefig(fig_name)
     plt.show()
     plt.close()
@@ -392,6 +399,9 @@ def get_miss_wrong_statistics(ss_mat_path, query_protein_list, target_protein_li
         get_result_filename = f'{result_path}get_{method_name}.txt'
         miss_result_filename = f'{result_path}miss_{method_name}.txt'
         wrong_result_filename = f'{result_path}wrong_{method_name}.txt'
+        make_parent_dir(get_result_filename)
+        make_parent_dir(miss_result_filename)
+        make_parent_dir(wrong_result_filename)
 
         with open(miss_result_filename, 'w') as f:
             for x in miss_list:
@@ -414,6 +424,7 @@ def venn_graph3(filename_list, label_tuple, venn_graph_name):
     filename_list[2] = get_set(filename_list[2])
 
     venn3(filename_list, label_tuple)
+    make_parent_dir(venn_graph_name)
     plt.savefig(venn_graph_name)
     plt.show()
     plt.close()
@@ -480,6 +491,7 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     fig_name = pair_list_filename.split('.txt')[0]+'_sequence_identity.png'
     g.set_axis_labels(xlabel='Structure similarity', ylabel='Sequence identity')
     plt.tight_layout()
+    make_parent_dir(fig_name)
     plt.savefig(fig_name)
     plt.show()
     plt.close()
@@ -546,7 +558,9 @@ def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_l
         plt.ylabel('Sensitivity up to the 1st FP')
         rel.fig.suptitle(cls)
         #plt.tight_layout()
-        plt.savefig(f"{roc_plot_name}_{cls}.png")
+        fig_name = f"{roc_plot_name}_{cls}.png"
+        make_parent_dir(fig_name)
+        plt.savefig(fig_name)
         plt.show()
         plt.close()
 
@@ -596,7 +610,9 @@ def tmscore_aupr(ss_mat_path, query_protein_list, target_protein_list, todo_file
                         Method=np.asarray(df_dict['method'])))
         ax = sns.relplot(data=df, x="Recall", y="Precision", hue='Method', style="Method", kind="line")
         plt.legend([],[], frameon=False)
-        plt.savefig(f"{plot_name}.png")
+        fig_name = f"{plot_name}.png"
+        make_parent_dir(fig_name)
+        plt.savefig(fig_name)
         plt.show()
         plt.close()
 
@@ -667,3 +683,116 @@ def tmscore_precision_recall(ss_mat_path, query_protein_list, target_protein_lis
         print(f"MAP of {method_list[index]}:{MAP}")
         print(f"P@{k} of {method_list[index]}:{p_at_k}")
         print(f"Good query = {good_query}")
+
+def scope_similarity_statistics(similarity_file, fold_file, plot_name):
+    plt.rcParams.update(plt.rcParamsDefault)
+    check_set = set((0.2, 0.3, 0.4, 0.5, 0.6))
+    fold_dict = {}
+    fold_similarity_list = []
+    same_different_list = []
+    same_fold_sum = 0
+    different_fold_sum = 0
+    p_similarity_same_fold = {}
+    p_similarity_different_fold = {}
+    probability = {}
+    probability["Similarity"] = []
+    probability["Posterior Probability"] = []
+    probability["Type"] = []
+    for i in range(101):
+        x_axis = i / 100
+        p_similarity_same_fold[x_axis] = 0
+        p_similarity_different_fold[x_axis] = 0
+
+    with open(fold_file) as fp:
+        for line in fp:
+            line_list = line.split()
+            protein = line_list[0]
+            scop = line_list[1]
+            scope_list = scop.split('.')
+            fold_dict[protein] = scope_list[0] + '.' + scope_list[1]
+    
+    with open(similarity_file) as fp:
+        for line in tqdm(fp):
+            line_list = line.split()
+            protein1 = line_list[0]
+            protein2 = line_list[1]
+            similarity = int(eval(line_list[2])*100) / 100
+            fold_similarity_list.append(similarity)
+            if (fold_dict[protein1] != fold_dict[protein2]):
+                same_different_list.append("Different Folds")
+                different_fold_sum += 1
+                p_similarity_different_fold[similarity] += 1
+            else:
+                same_different_list.append("Same Fold")
+                same_fold_sum += 1
+                p_similarity_same_fold[similarity] += 1
+
+    p_same_fold = same_fold_sum / (same_fold_sum + different_fold_sum)
+    p_different_fold = 1 - p_same_fold
+
+    print(f"Same fold pairs = {same_fold_sum}")
+    print(f"Different fold pairs = {different_fold_sum}")
+    print(f"P(Same fold) = {p_same_fold}")
+    print(f"P(Different fold) = {p_different_fold}")
+
+    p_f_tm = 0
+    p_not_f_tm = 1
+    for i in range(1, 101):
+        x_axis = i / 100
+        p_tm_f = p_similarity_same_fold[x_axis] / same_fold_sum
+        p_tm_not_f = p_similarity_different_fold[x_axis] / different_fold_sum
+        if ((p_tm_f!=0) or (p_tm_not_f!=0)):
+            p_f_tm = (p_tm_f*p_same_fold) / (p_tm_f*p_same_fold+p_tm_not_f*p_different_fold)
+            p_not_f_tm = (p_tm_not_f*p_different_fold) / (p_tm_f*p_same_fold+p_tm_not_f*p_different_fold)
+
+        probability["Similarity"].append(x_axis)
+        probability["Posterior Probability"].append(p_f_tm)
+        probability["Type"].append("Same Fold")
+
+        probability["Similarity"].append(x_axis)
+        probability["Posterior Probability"].append(p_not_f_tm)
+        probability["Type"].append("Different Fold")
+
+        if x_axis in check_set:
+            print(f"Similarity = {x_axis}, Same Fold Posterior Probability = {p_f_tm}")
+            print(f"Similarity = {x_axis}, Different Fold Posterior Probability = {p_not_f_tm}")
+
+    df = pd.DataFrame(dict(Similarity=np.asarray(probability['Similarity']), 
+                    Probability=np.asarray(probability['Posterior Probability']),
+                    Type=np.asarray(probability['Type'])))
+    ax = sns.relplot(data=df, x="Similarity", y="Probability", hue='Type', style="Type", kind="line")
+    plt.legend([],[], frameon=False)
+    plt.ylabel('Posterior Probability')
+    fig_name = f"{plot_name}1.png"
+    make_parent_dir(fig_name)
+    plt.savefig(fig_name)
+    plt.show()
+    plt.close()
+
+    # Initialize the FacetGrid object
+    df = pd.DataFrame(dict(score=np.asarray(fold_similarity_list), file=np.asarray(same_different_list)))
+    sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
+    ax = sns.FacetGrid(df, row="file", hue="file")
+
+    # Draw the densities in a few steps
+    ax.map(sns.kdeplot, "score", fill=True, linewidth=1.5, bw_adjust=3, clip_on=False)
+
+    # passing color=None to refline() uses the hue mapping
+    ax.refline(y=0, linewidth=1.5, linestyle="-", color=None, clip_on=False)
+
+    # Set the subplots to overlap
+    ax.figure.subplots_adjust(hspace=-.8)
+
+    # Remove axes details that don't play well with overlap
+    ax.set_titles("")
+    ax.set(xticks=[], xlabel="", yticks=[], ylabel="")
+    ax.despine(bottom=True, left=True)
+    #add legend
+    ax.add_legend(title='Type')
+    plt.xlim(0,1)
+    plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    fig_name = f"{plot_name}2.png"
+    make_parent_dir(fig_name)
+    plt.savefig(fig_name)
+    plt.show()
+    plt.close()
