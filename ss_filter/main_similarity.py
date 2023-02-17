@@ -195,7 +195,7 @@ def esm_similarity_sort(query_esm_result, target_esm_result, device_id, mode = '
             elif (mode == 'cos'):
                 predict_score = esm_example.cos_mean_esm_identity_compute(x1_tensor, x2_tensor).item()
             else:
-                print(f'Wrong Mode {args.mode}!!!')
+                print(f'Wrong Mode {mode}!!!')
                 return
             protein_pair_dict[protein1].append((protein2, predict_score))
     

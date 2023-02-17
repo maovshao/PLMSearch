@@ -28,5 +28,6 @@ apt install perl-CPAN
 #(or)yum install perl-CPAN
 sudo cpan Moose
 sudo cpan rlib
+sudo cpan IPC::Run
 sudo apt install hmmer
 #(or)yum install perl-CPAN

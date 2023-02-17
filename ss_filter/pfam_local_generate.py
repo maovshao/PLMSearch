@@ -53,7 +53,7 @@ if __name__ == "__main__":
     print("perl ./ss_filter_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./ss_filter_data/Pfam_db -outfile ./tmp.txt")
     os.system("perl ./ss_filter_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./ss_filter_data/Pfam_db -outfile ./tmp.txt")
     txt_to_json(args.fasta_path, args.outfile_path)
-    #structurepair_list make end
+    #structure pair_list make end
     time_end=time.time()
 
     print('Pfam local generate time cost', time_end-time_start, 's')

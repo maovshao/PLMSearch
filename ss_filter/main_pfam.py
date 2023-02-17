@@ -51,7 +51,7 @@ if __name__ == '__main__':
             query_pfam_result = get_clan_result(args.query_pfam_result, clan_file_path)
             target_pfam_result = get_clan_result(args.target_pfam_result, clan_file_path)
     else:
-        logger.info(f"Without pfam_cluster or pfam_result is not found in {args.pfam_result}")
+        logger.info(f"Without pfam_cluster or pfam_result is not found in {args.query_pfam_result}")
 
     prefilter_result = get_prefilter_result(query_pfam_result, target_pfam_result)
 
