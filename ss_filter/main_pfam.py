@@ -19,10 +19,7 @@ def get_prefilter_result(query_pfam_result, target_pfam_result):
 
     for query_protein in tqdm(query_pfam_result, desc = "query protein list"):
         for target_protein in target_pfam_result:
-            if (query_protein == target_protein):
-                score = 0
-                protein_pair_score_dict[query_protein].append((target_protein, score))
-            elif ((len(query_pfam_result[query_protein])>0) and (len(query_pfam_result[query_protein] & target_pfam_result[target_protein])>0)):
+            if ((len(query_pfam_result[query_protein])>0) and (len(query_pfam_result[query_protein] & target_pfam_result[target_protein])>0)):
                 score = 0
                 protein_pair_score_dict[query_protein].append((target_protein, score))
     

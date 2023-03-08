@@ -1,4 +1,3 @@
-import pandas as pd
 import json
 import re
 import argparse
@@ -29,9 +28,7 @@ def txt_to_json(fasta_path, outfile_path):
         tmp2=re.findall(r"(\w+)\.",item[5])
         item[0]="".join(tmp)
         item[5]="".join(tmp2)
-    datapd = pd.DataFrame(data).drop(15,axis=1)
-    
-    process=datapd.iloc[:,[0,5]]
+
     protein_list, _ = read_fasta(fasta_path)
     dict={}
     for protein in protein_list:

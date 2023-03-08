@@ -38,10 +38,8 @@ def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_resu
         for index in range(len(protein1_list)):
             protein1 = protein1_list[index]
             protein2 = protein2_list[index]
-            if (protein1 == protein2):
-                predict_score = 1
-            else:
-                predict_score = predict_score_tensor[index]
+
+            predict_score = predict_score_tensor[index]
             if (nocos == False):
                 if (cos_tensor[index] == 1):
                     predict_score = 1
@@ -60,19 +58,16 @@ def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_resu
         print("None of GPU is selected.")
         device = "cpu"
         model.to(device)
-        model_methods = model
     else:
         if torch.cuda.is_available()==False:
             print("GPU selected but none of them is available.")
             device = "cpu"
             model.to(device)
-            model_methods = model
         else:
             print("We have", torch.cuda.device_count(), "GPUs in total!, we will use as you selected")
             model = nn.DataParallel(model, device_ids = device_id)
             device = f'cuda:{device_id[0]}'
             model.to(device)
-            model_methods = model.module
 
     with torch.no_grad():
         with open(query_esm_result, 'rb') as handle:
@@ -123,11 +118,10 @@ def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_resu
                 protein2_list = []
             no_pfam_list = []
             for protein1 in tqdm(query_embedding_dic, desc = "query protein list"):
-                if (protein_pair_dict[protein1] == []) or (protein_pair_dict[protein1] == [(protein1, 1)]):
+                if (protein_pair_dict[protein1] == []) or ((len(protein_pair_dict[protein1]) == 1) and (protein_pair_dict[protein1][0][1] == 1)):
                     no_pfam_list.append(protein1)
+                    protein_pair_dict[protein1] = []
                     for protein2 in target_embedding_dic:
-                        if (protein1 == protein2):
-                            continue
                         protein1_list.append(protein1)
                         protein2_list.append(protein2)
                         batch_count += 1
@@ -141,9 +135,6 @@ def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_resu
                 batch_count = 0
                 protein1_list = []
                 protein2_list = []
-            # with open('./no_pfam_list.txt', 'w') as handle:
-            #     for protein in no_pfam_list:
-            #         handle.write(f"{protein}\n")
     
     for query_protein in query_embedding_dic:
         protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
