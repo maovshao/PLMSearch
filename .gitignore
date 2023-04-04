@@ -3,10 +3,21 @@
 __pycache__/
 .ipynb_checkpoints/
 .vscode/
-ss_filter_data/
+to_remove/
+plmsearch_data/
+
 scientist_figures/*
 !scientist_figures/plddt_statistics/
 !scientist_figures/workflow_img/
+
+example/*
+!example/tmalign_compute/test_tmalign
+!example/query_mean_esm_result_cpu.pkl
+!example/query_mean_esm_result.pkl
+!example/query_pfam_result.json
+!example/query_protein.fasta
+
+plmsearch/esm/saved_models/
 
 # Junk #
 ########
