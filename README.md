@@ -82,11 +82,11 @@ cd ../../..
 If you find the tool useful in your research, we ask that you cite the relevant paper:
 ```bibtex
 @article {Liu2023.04.03.535375,
-	author = {Liu, Wei and Wang, Ziye and You, Ronghui and Xie, Chenghan and Wei, Hong and Xiong, Yi and Yang, Jianyi and Zhu, Shanfeng},
-	title = {Protein language model powers accurate and fast sequence search for remote homology},
-	year = {2023},
-	doi = {10.1101/2023.04.03.535375},
-	URL = {https://www.biorxiv.org/content/early/2023/04/05/2023.04.03.535375},
-	journal = {bioRxiv}
+  author = {Liu, Wei and Wang, Ziye and You, Ronghui and Xie, Chenghan and Wei, Hong and Xiong, Yi and Yang, Jianyi and Zhu, Shanfeng},
+  title = {Protein language model powers accurate and fast sequence search for remote homology},
+  year = {2023},
+  doi = {10.1101/2023.04.03.535375},
+  URL = {https://www.biorxiv.org/content/early/2023/04/05/2023.04.03.535375},
+  journal = {bioRxiv}
 }
 ```
