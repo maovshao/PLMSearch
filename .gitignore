@@ -7,7 +7,7 @@ to_remove/
 plmsearch_data/
 
 scientist_figures/*
-!scientist_figures/plddt_statistics/
+!scientist_figures/plddt_statistics/plddt/
 !scientist_figures/workflow_img/
 
 example/*

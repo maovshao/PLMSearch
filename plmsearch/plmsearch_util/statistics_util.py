@@ -101,8 +101,8 @@ def cluster_statistics(pfam_result_file, clan_file_path, result_path):
     ax.set_xlabel('')
     ax.set_ylabel('')
     plt.yscale('log')
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
     ax.set(xlim=(0, cluster_num), ylim=(0.9, 10**(np.int(np.log10(max_protein_num))+1)), yticks=10**np.arange(0, (np.int(np.log10(max_protein_num))+2)))
     
 
@@ -127,7 +127,7 @@ def cluster_statistics(pfam_result_file, clan_file_path, result_path):
         f.write(f"small_family2_num = {small_family_num[2]}\n")
         f.write(f"small_family3_num = {small_family_num[3]}\n")
 
-def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_path, todo_file_list, todo_fig_list, ridge_plot_name, method_list, top_list):
+def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_path, todo_file_list, todo_fig_list, ridge_plot_name, method_list, top_list, legend):
     plt.rcParams.update(plt.rcParamsDefault)
     score_array_all = []
     file_array_all = []
@@ -164,9 +164,11 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
         score_avg = np.mean(score_array)
 
         ax = sns.displot(score_array, bins = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], linewidth=0)
-        ax.set(xlim=(0, 1))
         fig_name = todo_fig_list[index]
         make_parent_dir(fig_name)
+        plt.ylabel('Count', fontsize=18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
         plt.savefig(fig_name)
         plt.show()
         plt.close()
@@ -214,9 +216,9 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
     ax.set(xticks=[], xlabel="", yticks=[], ylabel="")
     ax.despine(bottom=True, left=True)
     #add legend
-    ax.add_legend(title='Cluster method')
-    plt.xlim(0,1)
-    plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    if legend:
+        ax.add_legend(title='', fontsize=18)
+    plt.xticks([0, 0.5, 1], fontsize=18)
     make_parent_dir(ridge_plot_name)
     plt.savefig(ridge_plot_name)
     plt.show()
@@ -268,16 +270,15 @@ def esm_similarity_statistics(query_esm_filename, target_esm_filename, query_pro
     print(f"Spearman correlation coefficient of {mode} = {rho}")
 
     g = sns.lmplot(x="structure_similarity", y="esm_similarity", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
+    plt.xlabel('TM-score', fontsize=18)
     if (mode == 'cos'):
-        plt.xlabel('TM-score')
-        plt.ylabel('COS')
+        plt.ylabel('COS', fontsize=18)
     if (mode == 'mse'):
-        plt.xlabel('TM-score')
-        plt.ylabel('Euclidean')
-    plt.xlim(0,1)
-    plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
-    plt.ylim(0,1)
-    plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+        plt.ylabel('Euclidean', fontsize=18)
+    plt.xlim(-0.1,1.1)
+    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.ylim(-0.1,1.1)
+    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
     plt.show()
@@ -299,7 +300,7 @@ def ss_predictor_statistics(query_esm_filename, target_esm_filename, query_prote
     model.load_pretrained(save_model_path)
     model.eval()
 
-    ## set the device
+    # set the device
     if (device_id == None or device_id == []):
         print("None of GPU is selected.")
         device = "cpu"
@@ -349,12 +350,12 @@ def ss_predictor_statistics(query_esm_filename, target_esm_filename, query_prote
     rho, _ = spearmanr(df['structure_similarity'], df['ss_predictor_score'])
     print(f"Spearman correlation coefficient of SS-predictor{'(COS)' if cos else ''} = {rho}")
     g = sns.lmplot(x="structure_similarity", y="ss_predictor_score", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
-    plt.xlabel('TM-score')
-    plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}")
-    plt.xlim(0,1)
-    plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
-    plt.ylim(0,1)
-    plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    plt.xlabel('TM-score', fontsize=18)
+    plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}", fontsize=18)
+    plt.xlim(-0.1,1.1)
+    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.ylim(-0.1,1.1)
+    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
 
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
@@ -450,7 +451,6 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     ss_mat = np.load(ss_mat_path)
 
     cut_structure_similarity = 0.5
-    #cut_structure_similarity = 0.3
     cut_sequence_identity = 0.3
 
     df_dict = {}
@@ -484,12 +484,20 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
             else:
                 st0_se0_num +=1       
         
-    g = sns.JointGrid(data=df_dict, x="structure_similarity", y="sequence_identity", xlim = (0,1.1), ylim = (0,1.1))
+    g = sns.JointGrid(data=df_dict, x="structure_similarity", y="sequence_identity", xlim = (-0.1,1.1), ylim = (-0.1,1.1))
     g.plot_joint(sns.scatterplot)
     g.plot_marginals(sns.histplot, kde=True)
     g.refline(x=cut_structure_similarity, y=cut_sequence_identity)
     fig_name = pair_list_filename.split('.txt')[0]+'_sequence_identity.png'
-    g.set_axis_labels(xlabel='TM-score', ylabel='Sequence identity')
+
+    g.ax_joint.set_xlabel('TM-score', fontsize=18)
+    g.ax_joint.set_ylabel('Sequence identity', fontsize=18)
+
+    g.ax_joint.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    g.ax_joint.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    g.ax_joint.tick_params(axis='x', labelsize=18)
+    g.ax_joint.tick_params(axis='y', labelsize=18)
+    
     plt.tight_layout()
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
@@ -509,7 +517,7 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     print(f'st1_rate={(st1_se1_num+st1_se0_num)/st1_sum}')
     print('---------------------------------------------')
 
-def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_list):
+def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_list, line_style, color_dict):
     def rocx2coord(fn, colID, method):
         df = pd.read_csv(fn, header=0, sep='\t')
         dfsort = df.sort_values(by=colID, ascending=False)
@@ -524,6 +532,7 @@ def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_l
             n+=1
 
     dfcol = ["FAM", "SFAM", "FOLD"]
+    dfcol_dict = {"FAM":"Family", "SFAM":"Superfamily", "FOLD":"Fold"}
     plt.rcParams.update(plt.rcParamsDefault)
 
     for i, cls in enumerate(dfcol):
@@ -534,17 +543,24 @@ def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_l
         df = pd.DataFrame(dict(qfracs=np.asarray(qfracs), 
                         sens=np.asarray(senss),
                         Method=np.asarray(methods)))
-        #画ROC的图
-        if (cls!="FOLD"):
+
+        if (cls=="FOLD"):
             rel = sns.relplot(
                 data=df,
                 x="qfracs", y="sens",
                 hue="Method",
                 style="Method",
                 kind='line',
-                markers=True,
-                legend=False
+                markers=False,
+                dashes=line_style,
+                palette=color_dict.values(),
+                legend='brief'
             )
+            plt.setp(rel._legend.get_texts(), fontsize='14')
+            legend = rel._legend
+            legend.set_bbox_to_anchor((0.85, 0.6))
+            legend.set_title('')
+
         else:
             rel = sns.relplot(
                 data=df,
@@ -552,19 +568,26 @@ def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_l
                 hue="Method",
                 style="Method",
                 kind='line',
-                markers=True
+                markers=False,
+                dashes=line_style,
+                palette=color_dict.values(),
+                legend=False
             )
-        plt.xlabel('Fraction of queries')
-        plt.ylabel('Sensitivity up to the 1st FP')
-        rel.fig.suptitle(cls)
-        #plt.tight_layout()
-        fig_name = f"{roc_plot_name}_{cls}.png"
+        plt.xlabel('Fraction of queries', fontsize=18)
+        plt.ylabel('Sensitivity up to the 1st FP', fontsize=18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        rel.fig.suptitle(dfcol_dict[cls], fontsize=18)
+        if (cls=="FOLD"):
+            rel.fig.suptitle(dfcol_dict[cls], x=0.39, fontsize=18)
+        fig_name = f"{roc_plot_name}_{dfcol_dict[cls]}.png"
         make_parent_dir(fig_name)
         plt.savefig(fig_name)
         plt.show()
         plt.close()
 
-def tmscore_aupr(ss_mat_path, query_protein_list, target_protein_list, todo_file_list, plot_name, method_list):
+
+def tmscore_aupr(ss_mat_path, query_protein_list, target_protein_list, todo_file_list, plot_name, method_list, line_style, color_dict):
     plt.rcParams.update(plt.rcParamsDefault)
 
     ss_mat = np.load(ss_mat_path)
@@ -604,12 +627,16 @@ def tmscore_aupr(ss_mat_path, query_protein_list, target_protein_list, todo_file
         average_precision = average_precision_score(true_list, predict_list, average="micro")
         print(f"AUPR of {method_list[index]}:{average_precision}")
 
-    if (len(method_list)>8):
+    if (len(line_style)>0):
         df = pd.DataFrame(dict(Precision=np.asarray(df_dict['precision']), 
                         Recall=np.asarray(df_dict['recall']),
                         Method=np.asarray(df_dict['method'])))
-        ax = sns.relplot(data=df, x="Recall", y="Precision", hue='Method', style="Method", kind="line")
-        plt.legend([],[], frameon=False)
+        ax = sns.relplot(data=df, x="Recall", y="Precision", hue='Method', style="Method", kind="line", markers=False, dashes=line_style, palette=color_dict.values())
+        plt.legend([],[], frameon=False, title="", fontsize=14)
+        plt.xlabel('Recall', fontsize=18)
+        plt.ylabel('Precision', fontsize=18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
         fig_name = f"{plot_name}.png"
         make_parent_dir(fig_name)
         plt.savefig(fig_name)
@@ -683,6 +710,27 @@ def tmscore_precision_recall(ss_mat_path, query_protein_list, target_protein_lis
         print(f"MAP of {method_list[index]}:{MAP}")
         print(f"P@{k} of {method_list[index]}:{p_at_k}")
         print(f"Good query = {good_query}")
+
+def plddt_statistics(protein_list_path, fig_name):
+    avg_plddt_array = []
+    with open(f"{protein_list_path}", 'r') as handle:
+        for line in handle:
+            line_list = line.strip().split(' ')
+            plddt = eval(line_list[1])
+            avg_plddt_array.append(plddt)
+    avg_plddt_array = np.asarray(avg_plddt_array)
+
+    ax = sns.displot(avg_plddt_array, bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], linewidth=0)
+    ax.set(xlim=(0, 100))
+    plt.xticks([0, 10, 30, 50, 70, 90], fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.xlabel('Avg. pLDDT', fontsize=18)
+    plt.ylabel('Count', fontsize=18)
+    plt.tight_layout()
+    make_parent_dir(fig_name)
+    plt.savefig(fig_name)
+    plt.show()
+    plt.close()
 
 def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     plt.rcParams.update(plt.rcParamsDefault)
@@ -760,9 +808,16 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     df = pd.DataFrame(dict(Similarity=np.asarray(probability['Similarity']), 
                     Probability=np.asarray(probability['Posterior Probability']),
                     Type=np.asarray(probability['Type'])))
-    ax = sns.relplot(data=df, x="Similarity", y="Probability", hue='Type', style="Type", kind="line")
-    plt.legend([],[], frameon=False)
-    plt.ylabel('Posterior Probability')
+    ax = sns.relplot(data=df, x="Similarity", y="Probability", hue='Type', style="Type", kind="line", legend='brief')
+    plt.setp(ax._legend.get_texts(), fontsize='14')
+    legend = ax._legend
+    legend.set_bbox_to_anchor((0.85, 0.5))
+    legend.set_title('')
+
+    plt.ylabel('Posterior Probability', fontsize=18)
+    plt.xlabel('Similarity', fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
     fig_name = f"{plot_name}1.png"
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
@@ -788,9 +843,10 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     ax.set(xticks=[], xlabel="", yticks=[], ylabel="")
     ax.despine(bottom=True, left=True)
     #add legend
-    ax.add_legend(title='Type')
+    ax.add_legend(title='', fontsize=14)
+    #ax.add_legend(title='Type')
     plt.xlim(0,1)
-    plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    plt.xticks([0, 0.5, 1], fontsize=18)
     fig_name = f"{plot_name}2.png"
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
