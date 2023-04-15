@@ -217,8 +217,8 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
     ax.despine(bottom=True, left=True)
     #add legend
     if legend:
-        ax.add_legend(title='', fontsize=18)
-    plt.xticks([0, 0.5, 1], fontsize=18)
+        ax.add_legend(title='', fontsize=20)
+    plt.xticks([0, 0.5, 1], fontsize=20)
     make_parent_dir(ridge_plot_name)
     plt.savefig(ridge_plot_name)
     plt.show()
@@ -270,15 +270,15 @@ def esm_similarity_statistics(query_esm_filename, target_esm_filename, query_pro
     print(f"Spearman correlation coefficient of {mode} = {rho}")
 
     g = sns.lmplot(x="structure_similarity", y="esm_similarity", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
-    plt.xlabel('TM-score', fontsize=18)
+    plt.xlabel('TM-score', fontsize=22)
     if (mode == 'cos'):
-        plt.ylabel('COS', fontsize=18)
+        plt.ylabel('COS', fontsize=22)
     if (mode == 'mse'):
-        plt.ylabel('Euclidean', fontsize=18)
+        plt.ylabel('Euclidean', fontsize=22)
     plt.xlim(-0.1,1.1)
-    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
     plt.ylim(-0.1,1.1)
-    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
     plt.show()
@@ -350,12 +350,12 @@ def ss_predictor_statistics(query_esm_filename, target_esm_filename, query_prote
     rho, _ = spearmanr(df['structure_similarity'], df['ss_predictor_score'])
     print(f"Spearman correlation coefficient of SS-predictor{'(COS)' if cos else ''} = {rho}")
     g = sns.lmplot(x="structure_similarity", y="ss_predictor_score", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
-    plt.xlabel('TM-score', fontsize=18)
-    plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}", fontsize=18)
+    plt.xlabel('TM-score', fontsize=22)
+    plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}", fontsize=22)
     plt.xlim(-0.1,1.1)
-    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
     plt.ylim(-0.1,1.1)
-    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
 
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
@@ -490,13 +490,13 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     g.refline(x=cut_structure_similarity, y=cut_sequence_identity)
     fig_name = pair_list_filename.split('.txt')[0]+'_sequence_identity.png'
 
-    g.ax_joint.set_xlabel('TM-score', fontsize=18)
-    g.ax_joint.set_ylabel('Sequence identity', fontsize=18)
+    g.ax_joint.set_xlabel('TM-score', fontsize=22)
+    g.ax_joint.set_ylabel('Sequence identity', fontsize=22)
 
     g.ax_joint.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
     g.ax_joint.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    g.ax_joint.tick_params(axis='x', labelsize=18)
-    g.ax_joint.tick_params(axis='y', labelsize=18)
+    g.ax_joint.tick_params(axis='x', labelsize=22)
+    g.ax_joint.tick_params(axis='y', labelsize=22)
     
     plt.tight_layout()
     make_parent_dir(fig_name)
@@ -809,7 +809,7 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
                     Probability=np.asarray(probability['Posterior Probability']),
                     Type=np.asarray(probability['Type'])))
     ax = sns.relplot(data=df, x="Similarity", y="Probability", hue='Type', style="Type", kind="line", legend='brief')
-    plt.setp(ax._legend.get_texts(), fontsize='14')
+    plt.setp(ax._legend.get_texts(), fontsize='18')
     legend = ax._legend
     legend.set_bbox_to_anchor((0.85, 0.5))
     legend.set_title('')
@@ -843,10 +843,10 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     ax.set(xticks=[], xlabel="", yticks=[], ylabel="")
     ax.despine(bottom=True, left=True)
     #add legend
-    ax.add_legend(title='', fontsize=14)
+    ax.add_legend(title='', fontsize=20)
     #ax.add_legend(title='Type')
     plt.xlim(0,1)
-    plt.xticks([0, 0.5, 1], fontsize=18)
+    plt.xticks([0, 0.5, 1], fontsize=20)
     fig_name = f"{plot_name}2.png"
     make_parent_dir(fig_name)
     plt.savefig(fig_name)
