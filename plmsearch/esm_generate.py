@@ -7,6 +7,7 @@ import argparse
 import torch
 import time
 import pickle
+import re
 
 from esm import Alphabet, FastaBatchedDataset, ProteinBertModel, pretrained, MSATransformer
 
@@ -42,6 +43,7 @@ def esm_generate(model_location, fasta, mean_esm_result, nogpu):
 
             for i, label in enumerate(labels):
                 #get mean embedding
+                label = re.split('\s+',label)[0]
                 #mean_embedding_dic[label] = out[i, 1 : len(strs[i]) + 1].mean(0).clone().cpu()
                 mean_embedding_dic[label] = out[i, 1 : len(strs[i]) + 1].mean(0).clone()
         

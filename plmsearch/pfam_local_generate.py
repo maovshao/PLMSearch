@@ -17,16 +17,13 @@ def txt_to_json(fasta_path, outfile_path):
         data2=line.split()
         m = re.findall(r"\w+", data2[0])
         if m:
-             results.append(line)
+            results.append(line)
     
     data=[]
-    pattern = r"\|*(\w+)\|*"
     for item in results:
         data.append(re.split('\s+',item))
     for item in data:
-        tmp=re.findall(pattern,item[0])
         tmp2=re.findall(r"(\w+)\.",item[5])
-        item[0]="".join(tmp)
         item[5]="".join(tmp2)
 
     protein_list, _ = read_fasta(fasta_path)
@@ -34,7 +31,8 @@ def txt_to_json(fasta_path, outfile_path):
     for protein in protein_list:
         dict.setdefault(protein,{})
     for item in data:
-        dict.setdefault(item[0],{}).update({"".join(item[5]):""})
+        if item[0] in protein_list:
+            dict[item[0]].update({"".join(item[5]):""})
     with open(outfile_path,'w') as f1:
         json.dump(dict, f1, indent = 6)
         f1.close()
