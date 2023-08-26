@@ -9,7 +9,7 @@ from tqdm import tqdm
 from logzero import logger
 from plmsearch_util.util import get_family_result, get_clan_result
 
-def get_prefilter_result(query_pfam_result, target_pfam_result):
+def get_search_result(query_pfam_result, target_pfam_result):
     logger.info(f"query protein num = {len(query_pfam_result)}")
     logger.info(f"target protein num = {len(target_pfam_result)}")
 
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--clan', action='store_true', help="(Optional, based on pfam) Whether to use clan")
 
     #output
-    parser.add_argument('-opr','--output_prefilter_result', type=str)
+    parser.add_argument('-opr','--output_search_result', type=str)
 
     args = parser.parse_args()
     
@@ -50,23 +50,23 @@ if __name__ == '__main__':
     else:
         logger.info(f"Without pfam_cluster or pfam_result is not found in {args.query_pfam_result}")
 
-    prefilter_result = get_prefilter_result(query_pfam_result, target_pfam_result)
+    search_result = get_search_result(query_pfam_result, target_pfam_result)
 
-    #output prefilter_result
-    if (args.output_prefilter_result != None):
-        output_prefilter_result = args.output_prefilter_result
+    #output search_result
+    if (args.output_search_result != None):
+        output_search_result = args.output_search_result
     else:
         #get default result_path
-        result_path = ''.join([x+'/' for x in args.query_pfam_result.split('/')[:-1]]) + 'prefilter_result/'
+        result_path = ''.join([x+'/' for x in args.query_pfam_result.split('/')[:-1]]) + 'search_result/'
         os.makedirs(result_path, exist_ok=True)
         if (args.query_pfam_result != None):
             if args.clan:
                 result_path += "pfamclan"
             else:
                 result_path += "pfamfamily"
-        output_prefilter_result = result_path
+        output_search_result = result_path
 
-    with open(output_prefilter_result, 'w') as f:
-        for protein in prefilter_result:
-            for pair in prefilter_result[protein]:
+    with open(output_search_result, 'w') as f:
+        for protein in search_result:
+            for pair in search_result[protein]:
                 f.write(f"{protein}\t{pair[0]}\t{pair[1]}\n")

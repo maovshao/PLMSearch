@@ -18,9 +18,10 @@ import matplotlib.pyplot as plt
 from matplotlib_venn import venn3
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import average_precision_score
-from plmsearch_util.util import get_pid_list, get_index_protein_dic, get_protein_index_dic, read_fasta, get_prefilter_list_without_self, make_parent_dir
-from plmsearch_util.esm_similarity_filter import esm_similarity_filiter
-from plmsearch_util.esm_ss_predict import esm_ss_predict_tri
+from sklearn.metrics import auc
+from plmsearch_util.model import plmsearch
+from plmsearch_util.util import get_index_protein_dic, get_protein_index_dic, read_fasta, get_search_list_without_self, make_parent_dir, pairwise_dot_product, pairwise_cos_similarity, pairwise_euclidean_similarity, tensor_to_list
+from plmsearch_util.alignment_util import pairwise_sequence_align_util
 
 def get_input_output(todo_dir_list, todo_name_list):
     todo_file_list = []
@@ -104,15 +105,12 @@ def cluster_statistics(pfam_result_file, clan_file_path, result_path):
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
     ax.set(xlim=(0, cluster_num), ylim=(0.9, 10**(np.int(np.log10(max_protein_num))+1)), yticks=10**np.arange(0, (np.int(np.log10(max_protein_num))+2)))
-    
+    ax.set_xticklabels(['{:,}'.format(int(label)) for label in ax.get_xticks()])
 
-    fig_name = result_path + 'pfamclan_cluster_statistics.png'
-    make_parent_dir(fig_name)
-    fig.savefig(fig_name)
     plt.show()
     plt.close()
 
-    statistics_name = ''.join([x+'.' for x in fig_name.split('.')[:-1]]) + "txt"
+    statistics_name = result_path + 'pfamclan_cluster_statistics.txt'
     make_parent_dir(statistics_name)
     with open(statistics_name, 'w') as f:
         f.write(f"cluster_num = {cluster_num}\n")
@@ -123,39 +121,62 @@ def cluster_statistics(pfam_result_file, clan_file_path, result_path):
         for family_name in big_familys:
             f.write(f"{family_name} = {big_familys[family_name]}\n")
         f.write(f"big_familys_tmalign_sum = {half_tmalign_times}\n")
+        f.write(f"big_familys_rate = {half_tmalign_times/total_tmalign_times}\n")
         f.write(f"small_family1_num = {small_family_num[1]}\n")
         f.write(f"small_family2_num = {small_family_num[2]}\n")
         f.write(f"small_family3_num = {small_family_num[3]}\n")
 
-def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_path, todo_file_list, todo_fig_list, ridge_plot_name, method_list, top_list, legend):
+def max_sequence_identity_statistics(max_sequence_identity_list, dataset_list):
+    df_dict = {}
+    df_dict["max_sequence_identity"] = []
+    df_dict["dataset"] = []
+
+    for index, max_sequence_identity in enumerate(max_sequence_identity_list):
+        with open(max_sequence_identity, 'r') as f:
+            for line in tqdm(f):
+                columns = line.strip().split('\t')
+                df_dict['max_sequence_identity'].append(eval(columns[1]))
+                df_dict['dataset'].append(dataset_list[index])
+
+    ax = sns.violinplot(data=df_dict, x="dataset", y="max_sequence_identity")
+    plt.xticks(fontsize=18)
+    plt.ylim(0,0.5)
+    plt.yticks([0.0, 0.1, 0.2, 0.3, 0.4, 0.5], fontsize=22)
+    plt.show()
+    plt.close()
+
+def precision_recall_statistics(ss_mat_path, query_protein_fasta, target_protein_fasta, todo_file_list, todo_fig_list, method_list, top_list, legend):
     plt.rcParams.update(plt.rcParamsDefault)
     score_array_all = []
     file_array_all = []
 
+    query_protein_list, _ = read_fasta(query_protein_fasta)
+    query_protein_index_dic = get_protein_index_dic(query_protein_list)
+    target_protein_list, _ = read_fasta(target_protein_fasta)
+    target_protein_index_dic = get_protein_index_dic(target_protein_list)
     ss_mat = np.load(ss_mat_path)
-    query_protein_dic = get_protein_index_dic(get_pid_list(query_protein_list_path))
-    target_protein_dic = get_protein_index_dic(get_pid_list(target_protein_list_path))
 
     tmscore_cut_row_column = set()
-    for index1 in range(len(query_protein_dic)):
-        for index2 in range(len(target_protein_dic)):
+    for index1 in range(len(query_protein_index_dic)):
+        for index2 in range(len(target_protein_index_dic)):
             if (ss_mat[index1][index2] > 0.5):
                 tmscore_cut_row_column.add((index1,index2))
 
+    recall_dict = {}
     for index, todo_file in enumerate(todo_file_list):
         if (os.path.exists(todo_file)==False):
             print(f'{todo_file} does not exist!')
             continue
         
-        prefilter_list = get_prefilter_list_without_self(todo_file)
+        prefilter_list = get_search_list_without_self(todo_file)
         if (top_list[index] != 'all'):
             prefilter_list = sorted(prefilter_list, key=lambda x:x[1], reverse=True)
             prefilter_list = prefilter_list[:top_list[index]]
         
         score_array = []
         for pair in prefilter_list:
-            r = query_protein_dic[pair[0][0]]
-            c = target_protein_dic[pair[0][1]]
+            r = query_protein_index_dic[pair[0][0]]
+            c = target_protein_index_dic[pair[0][1]]
             score = ss_mat[r][c]
             score_array.append(score)
             score_array_all.append(score)
@@ -164,16 +185,13 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
         score_avg = np.mean(score_array)
 
         ax = sns.displot(score_array, bins = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], linewidth=0)
-        fig_name = todo_fig_list[index]
-        make_parent_dir(fig_name)
         plt.ylabel('Count', fontsize=18)
         plt.xticks(fontsize=18)
         plt.yticks(fontsize=18)
-        plt.savefig(fig_name)
         plt.show()
         plt.close()
 
-        statistics_name = ''.join([x+'.' for x in fig_name.split('.')[:-1]]) + "txt"
+        statistics_name = ''.join([x+'.' for x in todo_fig_list[index].split('.')[:-1]]) + "txt"
         make_parent_dir(statistics_name)
         with open(statistics_name, 'w') as f:
             f.write(f'ss_mat_num_of_values:{score_array.shape[0]}\n')
@@ -181,21 +199,25 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
 
             exist_num = 0
             for pair in prefilter_list:
-                r = query_protein_dic[pair[0][0]]
-                c = target_protein_dic[pair[0][1]]
+                r = query_protein_index_dic[pair[0][0]]
+                c = target_protein_index_dic[pair[0][1]]
                 if ((r,c) in tmscore_cut_row_column):
                     exist_num += 1
             precision = exist_num/len(prefilter_list)
             recall = exist_num/len(tmscore_cut_row_column)
-            f1_score = 2 * precision * recall /(precision + recall)
 
             f.write(f'------------------------------------------\n')
-            f.write(f'Tm-score > 0.5\n')
             f.write(f'rec_rate:{recall}\n')
             f.write(f'rec:{exist_num}/{len(tmscore_cut_row_column)}\n')
             f.write(f'pre_rate:{precision}\n')
             f.write(f'pre:{exist_num}/{len(prefilter_list)}\n')
-            f.write(f'f1_score:{f1_score}\n')
+
+            print(f'-------------- Output for {statistics_name} --------------\n')
+            print(f'rec_rate:{recall}')
+            print(f'rec:{exist_num}/{len(tmscore_cut_row_column)}\n')
+            print(f'pre_rate:{precision}')
+            print(f'pre:{exist_num}/{len(prefilter_list)}\n')
+            recall_dict[method_list[index]] = recall
 
     # Initialize the FacetGrid object
     df = pd.DataFrame(dict(score=np.asarray(score_array_all), file=np.asarray(file_array_all)))
@@ -219,179 +241,235 @@ def ss_mat_statistics(ss_mat_path, query_protein_list_path, target_protein_list_
     if legend:
         ax.add_legend(title='', fontsize=20)
     plt.xticks([0, 0.5, 1], fontsize=20)
-    make_parent_dir(ridge_plot_name)
-    plt.savefig(ridge_plot_name)
     plt.show()
     plt.close()
 
-def esm_similarity_statistics(query_esm_filename, target_esm_filename, query_protein_list_path, target_protein_list_path, ss_mat_path, fig_name, mode = 'cos'):
+    return recall_dict
+
+def precision_recall_plot(df_dict):
+    plt.rcParams.update(plt.rcParamsDefault)
+    ax = sns.barplot(data=df_dict, x="dataset", y="recall", hue="method")
+    for i in ax.containers:
+        ax.bar_label(i,)
+    sns.move_legend(ax, "upper left")
+
+    plt.ylabel('Recall', fontsize=18)
+    plt.ylim(0, 1.0)
+    plt.xticks(fontsize=10)
+    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
+    plt.show()
+    plt.close()
+
+def esm_similarity_correlation_statistics(query_esm_filename, target_esm_filename, query_protein_fasta, target_protein_fasta, ss_mat_path, device_id, mode = 'cos'):
     with open(query_esm_filename, 'rb') as handle:
         query_esm_dict = pickle.load(handle)
     with open(target_esm_filename, 'rb') as handle:
         target_esm_dict = pickle.load(handle)
     
     plt.rcParams.update(plt.rcParamsDefault)
-    esm_example = esm_similarity_filiter()
 
-    query_protein_dic = get_index_protein_dic(get_pid_list(query_protein_list_path))
-    target_protein_dic = get_index_protein_dic(get_pid_list(target_protein_list_path))
+    query_protein_list, _ = read_fasta(query_protein_fasta)
+    query_index_protein_dic = get_index_protein_dic(query_protein_list)
+    target_protein_list, _ = read_fasta(target_protein_fasta)
+    target_index_protein_dic = get_index_protein_dic(target_protein_list)
 
     ss_mat = np.load(ss_mat_path)
+
+    ## set the device
+    if (device_id == None or device_id == []):
+        print("None of GPU is selected.")
+        device = "cpu"
+    else:
+        if torch.cuda.is_available()==False:
+            print("GPU selected but none of them is available.")
+            device = "cpu"
+        else:
+            print("We have", torch.cuda.device_count(), "GPUs in total!, we will use as you selected")
+            device = f'cuda:{device_id[0]}'
 
     df_dict = {}
     df_dict['esm_similarity'] = []
     df_dict['structure_similarity'] = []    
-    structure_similarity_list = []
+    query_embedding = []
+    target_embedding = []
 
-    for index1 in range(len(query_protein_dic)):
-        for index2 in range(len(target_protein_dic)):
-            if (query_protein_dic[index1] == target_protein_dic[index2]):
+    statistics_num = 0
+    for index1 in range(len(query_index_protein_dic)):
+        for index2 in range(len(target_index_protein_dic)):
+            if (statistics_num>=100000):
+                break
+            if (query_index_protein_dic[index1] == target_index_protein_dic[index2]):
                 continue
-            structure_similarity_list.append(((query_protein_dic[index1], target_protein_dic[index2]), ss_mat[index1][index2]))
+            statistics_num += 1
+            query_embedding.append(query_esm_dict[query_index_protein_dic[index1]].to(device))
+            target_embedding.append(target_esm_dict[target_index_protein_dic[index2]].to(device))
+            df_dict['structure_similarity'].append(ss_mat[index1][index2])
 
-    for i in trange(100000):
-        if (mode == 'cos'):
-            esm_similarity = esm_example.cos_mean_esm_identity_compute(query_esm_dict[structure_similarity_list[i][0][0]], target_esm_dict[structure_similarity_list[i][0][1]]).item()
-        elif (mode == 'mse'):
-            esm_similarity = esm_example.mse_mean_esm_identity_compute(query_esm_dict[structure_similarity_list[i][0][0]], target_esm_dict[structure_similarity_list[i][0][1]]).item()
-        else:
-            print(f'Wrong Mode {mode}!!!')
-            return
-        df_dict['esm_similarity'].append(esm_similarity)
-        df_dict['structure_similarity'].append(structure_similarity_list[i][1])
+    query_embedding = torch.stack(query_embedding)
+    target_embedding = torch.stack(target_embedding)
+    if (mode == 'cos'):
+        predict_score_tensor = pairwise_cos_similarity(query_embedding, target_embedding)
+    elif (mode == 'euclidean'):
+        predict_score_tensor = pairwise_euclidean_similarity(query_embedding, target_embedding)
+    else:
+        print(f'Wrong Mode {mode}!!!')
+    df_dict['esm_similarity'] = tensor_to_list(predict_score_tensor)
     
     df = pd.DataFrame(dict(esm_similarity=np.asarray(df_dict['esm_similarity']), 
                 structure_similarity=np.asarray(df_dict['structure_similarity'])))
     df['esm_similarity'] = (df['esm_similarity']-df['esm_similarity'].min()) / (df['esm_similarity'].max()-df['esm_similarity'].min())
     from scipy.stats import pearsonr, spearmanr
-    rho, _ = pearsonr(df['structure_similarity'], df['esm_similarity'])
-    print(f"Pearson correlation coefficient of {mode} = {rho}")
-    rho, _ = spearmanr(df['structure_similarity'], df['esm_similarity'])
-    print(f"Spearman correlation coefficient of {mode} = {rho}")
+    rho_p, _ = pearsonr(df['structure_similarity'], df['esm_similarity'])
+    print(f"Pearson correlation coefficient of {mode} = {rho_p}")
+    rho_s, _ = spearmanr(df['structure_similarity'], df['esm_similarity'])
+    print(f"Spearman correlation coefficient of {mode} = {rho_s}")
 
-    g = sns.lmplot(x="structure_similarity", y="esm_similarity", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
+    ax = sns.lmplot(x="structure_similarity", y="esm_similarity", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
+
+    # add text box for the statistics
+    stats = (f"Pearson's $\\rho$  = {rho_p:.4f}\n"
+             f"Spearman's $\\rho$ = {rho_s:.4f}")
+    bbox = dict(boxstyle='round', fc='blanchedalmond', ec='orange', alpha=0.5)
+    from matplotlib.font_manager import FontProperties
+    font = FontProperties(family='monospace', size=15)
+    plt.text(0.4, 0, stats, font=font, bbox=bbox)
+
     plt.xlabel('TM-score', fontsize=22)
     if (mode == 'cos'):
         plt.ylabel('COS', fontsize=22)
-    if (mode == 'mse'):
+    if (mode == 'euclidean'):
         plt.ylabel('Euclidean', fontsize=22)
     plt.xlim(-0.1,1.1)
     plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
     plt.ylim(-0.1,1.1)
     plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
-    make_parent_dir(fig_name)
-    plt.savefig(fig_name)
     plt.show()
     plt.close()
 
-def ss_predictor_statistics(query_esm_filename, target_esm_filename, query_protein_list_path, target_protein_list_path, ss_mat_path, save_model_path, device_id, fig_name, cos):
+def plmsearch_correlation_statistics(query_esm_filename, target_esm_filename, query_protein_fasta, target_protein_fasta, ss_mat_path, save_model_path, device_id, cos):
     with open(query_esm_filename, 'rb') as handle:
         query_esm_dict = pickle.load(handle)
     with open(target_esm_filename, 'rb') as handle:
         target_esm_dict = pickle.load(handle)
 
     plt.rcParams.update(plt.rcParamsDefault)
-    query_protein_dic = get_index_protein_dic(get_pid_list(query_protein_list_path))
-    target_protein_dic = get_index_protein_dic(get_pid_list(target_protein_list_path))
+    query_protein_list, _ = read_fasta(query_protein_fasta)
+    query_index_protein_dic = get_index_protein_dic(query_protein_list)
+    target_protein_list, _ = read_fasta(target_protein_fasta)
+    target_index_protein_dic = get_index_protein_dic(target_protein_list)
 
     ss_mat = np.load(ss_mat_path)
 
-    model = esm_ss_predict_tri(embed_dim = 1280)
+    model = plmsearch(embed_dim = 1280)
     model.load_pretrained(save_model_path)
     model.eval()
 
-    # set the device
+    ## set the device
     if (device_id == None or device_id == []):
         print("None of GPU is selected.")
         device = "cpu"
         model.to(device)
-        model_methods = model
     else:
         if torch.cuda.is_available()==False:
             print("GPU selected but none of them is available.")
             device = "cpu"
             model.to(device)
-            model_methods = model
         else:
             print("We have", torch.cuda.device_count(), "GPUs in total!, we will use as you selected")
             model = nn.DataParallel(model, device_ids = device_id)
             device = f'cuda:{device_id[0]}'
             model.to(device)
-            model_methods = model.module
 
-    df_dict = {}
-    df_dict['ss_predictor_score'] = []
-    df_dict['structure_similarity'] = []
+    with torch.no_grad():
+        df_dict = {}
+        df_dict['ss_predictor_score'] = []
+        df_dict['structure_similarity'] = []
+        query_embedding = []
+        query_raw_embedding = []
+        target_embedding = []
 
-    structure_similarity_list = []
+        statistics_num = 0
+        for index1 in range(len(query_index_protein_dic)):
+            for index2 in range(len(target_index_protein_dic)):
+                if (statistics_num>=100000):
+                    break
+                if (query_index_protein_dic[index1] == target_index_protein_dic[index2]):
+                    continue
+                statistics_num += 1
+                query_embedding.append(model(query_esm_dict[query_index_protein_dic[index1]].to(device)))
+                query_raw_embedding.append(query_esm_dict[query_index_protein_dic[index1]].to(device))
+                target_embedding.append(target_esm_dict[target_index_protein_dic[index2]].to(device))
+                df_dict['structure_similarity'].append(ss_mat[index1][index2])
 
-    for index1 in range(len(query_protein_dic)):
-        for index2 in range(len(target_protein_dic)):
-            if (query_protein_dic[index1] == target_protein_dic[index2]):
-                continue
-            structure_similarity_list.append(((query_protein_dic[index1], target_protein_dic[index2]), ss_mat[index1][index2]))
-    
-    for i in trange(100000):
-        embedding1 = query_esm_dict[structure_similarity_list[i][0][0]].unsqueeze(0)
-        embedding2 = target_esm_dict[structure_similarity_list[i][0][1]].unsqueeze(0)
-        if (cos == True):
-            ss_predictor_score = (model(embedding1, embedding2) * F.cosine_similarity(embedding1, embedding2)).item()
+        query_embedding = torch.stack(query_embedding)
+        query_raw_embedding = torch.stack(query_raw_embedding)
+        target_embedding = torch.stack(target_embedding)
+        sim_score = tensor_to_list(pairwise_dot_product(query_embedding, target_embedding))
+        cos_score = tensor_to_list(pairwise_cos_similarity(query_raw_embedding, target_embedding))
+
+        if cos:
+            df_dict['ss_predictor_score'] = [cos_score[i] if (cos_score[i]>0.997) else cos_score[i] * sim_score[i] for i in range(len(sim_score))]
         else:
-            ss_predictor_score = model(embedding1, embedding2).item()
-        df_dict['ss_predictor_score'].append(ss_predictor_score)
-        df_dict['structure_similarity'].append(structure_similarity_list[i][1])
+            df_dict['ss_predictor_score'] = sim_score
 
-    df = pd.DataFrame(dict(ss_predictor_score=np.asarray(df_dict['ss_predictor_score']), 
-            structure_similarity=np.asarray(df_dict['structure_similarity'])))
-    df['ss_predictor_score'] = (df['ss_predictor_score']-df['ss_predictor_score'].min()) / (df['ss_predictor_score'].max()-df['ss_predictor_score'].min())
-    from scipy.stats import pearsonr, spearmanr
-    rho, _ = pearsonr(df['structure_similarity'], df['ss_predictor_score'])
-    print(f"Pearson correlation coefficient of SS-predictor{'(COS)' if cos else ''} = {rho}")
-    rho, _ = spearmanr(df['structure_similarity'], df['ss_predictor_score'])
-    print(f"Spearman correlation coefficient of SS-predictor{'(COS)' if cos else ''} = {rho}")
-    g = sns.lmplot(x="structure_similarity", y="ss_predictor_score", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
-    plt.xlabel('TM-score', fontsize=22)
-    plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}", fontsize=22)
-    plt.xlim(-0.1,1.1)
-    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
-    plt.ylim(-0.1,1.1)
-    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
+        df = pd.DataFrame(dict(ss_predictor_score=np.asarray(df_dict['ss_predictor_score']), 
+                structure_similarity=np.asarray(df_dict['structure_similarity'])))
+        df['ss_predictor_score'] = (df['ss_predictor_score']-df['ss_predictor_score'].min()) / (df['ss_predictor_score'].max()-df['ss_predictor_score'].min())
+        from scipy.stats import pearsonr, spearmanr
+        rho_p, _ = pearsonr(df['structure_similarity'], df['ss_predictor_score'])
+        print(f"Pearson correlation coefficient of SS-predictor{' (w/o COS)' if not cos else ''} = {rho_p}")
+        rho_s, _ = spearmanr(df['structure_similarity'], df['ss_predictor_score'])
+        print(f"Spearman correlation coefficient of SS-predictor{' (w/o COS)' if not cos else ''} = {rho_s}")
+        g = sns.lmplot(x="structure_similarity", y="ss_predictor_score", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
 
-    make_parent_dir(fig_name)
-    plt.savefig(fig_name)
-    plt.show()
-    plt.close()
+        # add text box for the statistics
+        stats = (f"Pearson's $\\rho$  = {rho_p:.4f}\n"
+                 f"Spearman's $\\rho$ = {rho_s:.4f}")
+        bbox = dict(boxstyle='round', fc='blanchedalmond', ec='orange', alpha=0.5)
+        from matplotlib.font_manager import FontProperties
+        font = FontProperties(family='monospace', size=15)
+        plt.text(0.4, 0, stats, font=font, bbox=bbox)
+
+        plt.xlabel('TM-score', fontsize=22)
+        plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}", fontsize=22)
+        plt.xlim(-0.1,1.1)
+        plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
+        plt.ylim(-0.1,1.1)
+        plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
+        plt.show()
+        plt.close()
     
-def get_miss_wrong_statistics(ss_mat_path, query_protein_list, target_protein_list, todo_file_list, top_list, result_path):
-    query_protein_dic = get_index_protein_dic(get_pid_list(query_protein_list))
-    target_protein_dic = get_index_protein_dic(get_pid_list(target_protein_list))
+def get_miss_wrong_statistics(ss_mat_path, query_protein_fasta, target_protein_fasta, todo_file_list, top_list, result_path):
+    query_protein_list, _ = read_fasta(query_protein_fasta)
+    query_index_protein_dic = get_index_protein_dic(query_protein_list)
+    target_protein_list, _ = read_fasta(target_protein_fasta)
+    target_index_protein_dic = get_index_protein_dic(target_protein_list)
     
     ss_mat = np.load(ss_mat_path)
     get_row_column = set()
     wrong_row_column = set()
 
-    for index1 in range(len(query_protein_dic)):
-        for index2 in range(len(target_protein_dic)):
-            if (query_protein_dic[index1] == target_protein_dic[index2]):
+    for index1 in range(len(query_index_protein_dic)):
+        for index2 in range(len(target_index_protein_dic)):
+            if (query_index_protein_dic[index1] == target_index_protein_dic[index2]):
                 continue
             if (ss_mat[index1][index2] > 0.5):
-                get_row_column.add((query_protein_dic[index1],target_protein_dic[index2]))
-            if (ss_mat[index1][index2] < 0.3):
-                wrong_row_column.add((query_protein_dic[index1],target_protein_dic[index2]))
+                get_row_column.add((query_index_protein_dic[index1],target_index_protein_dic[index2]))
+            if (ss_mat[index1][index2] < 0.2):
+                wrong_row_column.add((query_index_protein_dic[index1],target_index_protein_dic[index2]))
 
     for index, todo_file in enumerate(todo_file_list):
         if (os.path.exists(todo_file)==False):
             print(f'{todo_file} does not exist!')
             continue
         
-        prefilter_list = get_prefilter_list_without_self(todo_file)
-        if (top_list[index] != 'all'):
-            prefilter_list = sorted(prefilter_list, key=lambda x:x[1], reverse=True)
-            prefilter_list = prefilter_list[:top_list[index]]
+        search_list = get_search_list_without_self(todo_file)
+        search_list = sorted(search_list, key=lambda x:x[1], reverse=True)
+        search_list = search_list[:top_list[index]]
 
         predicted_cut_row_column = set()
-        for filtered_num in trange(0, len(prefilter_list)):
-            predicted_cut_row_column.add(prefilter_list[filtered_num][0])
+        for filtered_num in trange(0, len(search_list)):
+            predicted_cut_row_column.add(search_list[filtered_num][0])
         miss_list = list(get_row_column - predicted_cut_row_column)
         get_list = list(get_row_column & predicted_cut_row_column)
         wrong_list = list(wrong_row_column & predicted_cut_row_column)
@@ -414,40 +492,53 @@ def get_miss_wrong_statistics(ss_mat_path, query_protein_list, target_protein_li
             for x in wrong_list:
                 f.write(f'{x}\n')
 
-def venn_graph3(filename_list, label_tuple, venn_graph_name):
-    def get_set(pair_list_filename):
-        with open(pair_list_filename) as fp:
-            return set([eval(line) for line in fp])
-    plt.rcParams.update(plt.rcParamsDefault)
+def sequence_structure_statistics(query_protein_fasta, target_protein_fasta, ss_mat_path):
+    query_protein_list, query_protein_sequence = read_fasta(query_protein_fasta)
+    target_protein_list, target_protein_sequence = read_fasta(target_protein_fasta)
 
-    filename_list[0] = get_set(filename_list[0])
-    filename_list[1] = get_set(filename_list[1])
-    filename_list[2] = get_set(filename_list[2])
+    query_protein_index_dic = get_protein_index_dic(query_protein_list)
+    target_protein_index_dic = get_protein_index_dic(target_protein_list)
 
-    venn3(filename_list, label_tuple)
-    make_parent_dir(venn_graph_name)
-    plt.savefig(venn_graph_name)
-    plt.show()
-    plt.close()
+    ss_mat = np.load(ss_mat_path)
 
-def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_filename, query_protein_list_path, target_protein_list_path, ss_mat_path):
+    cut_structure_similarity = 0.5
+    cut_sequence_identity = 0.3
+
+    st1_se1_sum = 0
+    st1_se0_sum = 0
+    st1_sum = 0
+
+    for query_protein in query_protein_list:
+        for target_protein in target_protein_list:
+            if (query_protein == target_protein):
+                continue
+            structure_similarity = ss_mat[query_protein_index_dic[query_protein], target_protein_index_dic[target_protein]]
+            if (structure_similarity<cut_structure_similarity):
+                continue
+            st1_sum += 1
+            sequence1 = query_protein_sequence[query_protein]
+            sequence2 = target_protein_sequence[target_protein]
+            best_sequence_identity, _ = pairwise_sequence_align_util(sequence1, sequence2)
+            if (best_sequence_identity>cut_sequence_identity):
+                st1_se1_sum +=1
+            else:
+                st1_se0_sum +=1
+    
+    return st1_se1_sum, st1_se0_sum, st1_sum
+
+def pair_list_statistics(pair_list_filename, query_protein_fasta, target_protein_fasta, ss_mat_path, st1_se1_sum, st1_se0_sum, st1_sum):
     def get_list(pair_list_filename):
         with open(pair_list_filename) as fp:
             return [eval(line) for line in fp]
-    def get_best_sequence_identity(sequence1, sequence2):
-        global_align = pw2.align.globalxx(sequence1, sequence2)
-        best_sequence_identity = 0
-        for i in global_align:
-            sequence_identity = i[2]/(i[4]-i[3])
-            best_sequence_identity = max(best_sequence_identity, sequence_identity)
-        return best_sequence_identity
 
     plt.rcParams.update(plt.rcParamsDefault)
     pair_list = get_list(pair_list_filename)
-    _, query_protein_sequence = read_fasta(query_fasta_filename)
-    _, target_protein_sequence = read_fasta(target_fasta_filename)
-    query_protein_index_dic = get_protein_index_dic(get_pid_list(query_protein_list_path))
-    target_protein_index_dic = get_protein_index_dic(get_pid_list(target_protein_list_path))
+    query_protein_list, query_protein_sequence = read_fasta(query_protein_fasta)
+    target_protein_list, target_protein_sequence = read_fasta(target_protein_fasta)
+
+    query_protein_index_dic = get_protein_index_dic(query_protein_list)
+    target_protein_index_dic = get_protein_index_dic(target_protein_list)
+
     ss_mat = np.load(ss_mat_path)
 
     cut_structure_similarity = 0.5
@@ -463,14 +554,14 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     st1_se1_num = 0
 
     for pair in pair_list:
-        protein1 = pair[0]
-        protein2 = pair[1]
-        structure_similarity = ss_mat[query_protein_index_dic[protein1], target_protein_index_dic[protein2]]
+        query_protein = pair[0]
+        target_protein = pair[1]
+        structure_similarity = ss_mat[query_protein_index_dic[query_protein], target_protein_index_dic[target_protein]]
         df_dict['structure_similarity'].append(structure_similarity)
 
-        sequence1 = query_protein_sequence[protein1]
-        sequence2 = target_protein_sequence[protein2]
-        best_sequence_identity = get_best_sequence_identity(sequence1, sequence2)
+        sequence1 = query_protein_sequence[query_protein]
+        sequence2 = target_protein_sequence[target_protein]
+        best_sequence_identity, _ = pairwise_sequence_align_util(sequence1, sequence2)
         df_dict['sequence_identity'].append(best_sequence_identity)
 
         if (structure_similarity>cut_structure_similarity):
@@ -488,7 +579,6 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     g.plot_joint(sns.scatterplot)
     g.plot_marginals(sns.histplot, kde=True)
     g.refline(x=cut_structure_similarity, y=cut_sequence_identity)
-    fig_name = pair_list_filename.split('.txt')[0]+'_sequence_identity.png'
 
     g.ax_joint.set_xlabel('TM-score', fontsize=22)
     g.ax_joint.set_ylabel('Sequence identity', fontsize=22)
@@ -499,14 +589,8 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     g.ax_joint.tick_params(axis='y', labelsize=22)
     
     plt.tight_layout()
-    make_parent_dir(fig_name)
-    plt.savefig(fig_name)
     plt.show()
     plt.close()
-
-    st1_se1_sum = 579
-    st1_se0_sum = 2138
-    st1_sum = 2717
 
     print('Statistics_result:')
     print(f'st1_se1_num={st1_se1_num}/{st1_se1_sum}')
@@ -517,12 +601,12 @@ def pair_list_statistics(pair_list_filename, query_fasta_filename, target_fasta_
     print(f'st1_rate={(st1_se1_num+st1_se0_num)/st1_sum}')
     print('---------------------------------------------')
 
-def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_list, line_style, color_dict):
+def scop_roc(alnresult_dir, methods_filename_list, methods_name_list, line_style, color_dict, legend_pos = 0.85, time = False):
     def rocx2coord(fn, colID, method):
         df = pd.read_csv(fn, header=0, sep='\t')
         dfsort = df.sort_values(by=colID, ascending=False)
         n = 1
-        for index,row in dfsort.iterrows():
+        for index, row in dfsort.iterrows():
             if ((n-1)%20 == 0):
                 score = float(row[colID])
                 qfraction = n / df.shape[0]
@@ -556,10 +640,18 @@ def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_l
                 palette=color_dict.values(),
                 legend='brief'
             )
-            plt.setp(rel._legend.get_texts(), fontsize='14')
             legend = rel._legend
-            legend.set_bbox_to_anchor((0.85, 0.6))
-            legend.set_title('')
+            legend.set_bbox_to_anchor((legend_pos, 0.6))
+            if (time == False):
+                legend.set_title('')
+            else:
+                from matplotlib.font_manager import FontProperties
+                legend.set_title('Search time')
+                legend_title = legend.get_title()
+                legend_title.set_fontsize('12')
+                font = FontProperties(family='monospace', size=12)
+                for text in legend.texts:
+                    text.set_fontproperties(font)
 
         else:
             rel = sns.relplot(
@@ -580,70 +672,83 @@ def scop_roc(alnresult_dir, methods_filename_list, roc_plot_name, methods_name_l
         rel.fig.suptitle(dfcol_dict[cls], fontsize=18)
         if (cls=="FOLD"):
             rel.fig.suptitle(dfcol_dict[cls], x=0.39, fontsize=18)
-        fig_name = f"{roc_plot_name}_{dfcol_dict[cls]}.png"
-        make_parent_dir(fig_name)
-        plt.savefig(fig_name)
         plt.show()
         plt.close()
 
+def scop_pr(alnresult_dir, methods_filename_list, methods_name_list, line_style, color_dict, legend_pos = 0.85, time = False):
+    def prx2coord(fn, colID, method):
+        df = pd.read_csv(fn, header=0, sep='\t')
+        precision = df['PREC_' + colID].tolist()
+        recall = df['RECALL_' + colID].tolist()
+        step_gap = int(len(precision) / 1000) + 1
+        for i in range(0, len(precision), step_gap):
+            precisions.append(precision[i])
+            recalls.append(recall[i])
+            methods.append(method)
+        aupr = auc(recall, precision)
+        print(f"AUPR for {method} ({dfcol_dict[cls]}): {aupr}")
 
-def tmscore_aupr(ss_mat_path, query_protein_list, target_protein_list, todo_file_list, plot_name, method_list, line_style, color_dict):
+    dfcol = ["FAM", "SFAM", "FOLD"]
+    dfcol_dict = {"FAM":"Family", "SFAM":"Superfamily", "FOLD":"Fold"}
     plt.rcParams.update(plt.rcParamsDefault)
 
-    ss_mat = np.load(ss_mat_path)
-    query_protein_dic = get_protein_index_dic(get_pid_list(query_protein_list))
-    query_protein_list = get_pid_list(query_protein_list)
-    target_protein_dic = get_protein_index_dic(get_pid_list(target_protein_list))
-    target_protein_list = get_pid_list(target_protein_list)
-
-    df_dict = {}
-    df_dict['precision'] = []
-    df_dict['recall'] = []
-    df_dict['method'] = []
-
-    true_list = ss_mat.reshape(-1)
-    true_list = np.where(true_list>0.5, 1, 0)
-
-    for index, todo_file in enumerate(todo_file_list):
-        if (os.path.exists(todo_file)==False):
-            print(f'{todo_file} does not exist!')
-            continue
+    for i, cls in enumerate(dfcol):
+        precisions, recalls, methods = [], [], []
+        for k in range(len(methods_filename_list)):
+            prx2coord(f'{alnresult_dir}{methods_filename_list[k]}', cls, method = methods_name_list[k])        
         
-        prefilter_list = get_prefilter_list_without_self(todo_file)
-        predict_tmscore_mat = np.zeros((len(query_protein_list), len(target_protein_list)), dtype=np.float64)
-        for pair in tqdm(prefilter_list):
-            protein_id1 = query_protein_dic[pair[0][0]]
-            protein_id2 = target_protein_dic[pair[0][1]]
-            predict_tmscore_mat[protein_id1][protein_id2] = pair[1]
-                
-        predict_list = predict_tmscore_mat.reshape(-1)
-        
-        precision, recall, thresholds = precision_recall_curve(true_list, predict_list)
-        step_gap = int(len(precision) / 1000) + 1
-        for index2 in range(0, len(precision), step_gap):
-            df_dict['precision'].append(precision[index2])
-            df_dict['recall'].append(recall[index2])
-            df_dict['method'].append(method_list[index])
-        average_precision = average_precision_score(true_list, predict_list, average="micro")
-        print(f"AUPR of {method_list[index]}:{average_precision}")
+        df = pd.DataFrame(dict(Recall=np.asarray(recalls), 
+                        Precision=np.asarray(precisions),
+                        Method=np.asarray(methods)))
 
-    if (len(line_style)>0):
-        df = pd.DataFrame(dict(Precision=np.asarray(df_dict['precision']), 
-                        Recall=np.asarray(df_dict['recall']),
-                        Method=np.asarray(df_dict['method'])))
-        ax = sns.relplot(data=df, x="Recall", y="Precision", hue='Method', style="Method", kind="line", markers=False, dashes=line_style, palette=color_dict.values())
-        plt.legend([],[], frameon=False, title="", fontsize=14)
+        if (cls=="FOLD"):
+            rel = sns.relplot(
+                data=df,
+                x="Recall", y="Precision",
+                hue="Method",
+                style="Method",
+                kind='line',
+                markers=False,
+                dashes=line_style,
+                palette=color_dict.values(),
+                legend='brief'
+            )
+            legend = rel._legend
+            legend.set_bbox_to_anchor((legend_pos, 0.6))
+            if (time == False):
+                legend.set_title('')
+            else:
+                from matplotlib.font_manager import FontProperties
+                legend.set_title('Search time')
+                legend_title = legend.get_title()
+                legend_title.set_fontsize('12')
+                font = FontProperties(family='monospace', size=12)
+                for text in legend.texts:
+                    text.set_fontproperties(font)
+
+        else:
+            rel = sns.relplot(
+                data=df,
+                x="Recall", y="Precision",
+                hue="Method",
+                style="Method",
+                kind='line',
+                markers=False,
+                dashes=line_style,
+                palette=color_dict.values(),
+                legend=False
+            )
         plt.xlabel('Recall', fontsize=18)
         plt.ylabel('Precision', fontsize=18)
         plt.xticks(fontsize=18)
         plt.yticks(fontsize=18)
-        fig_name = f"{plot_name}.png"
-        make_parent_dir(fig_name)
-        plt.savefig(fig_name)
+        rel.fig.suptitle(dfcol_dict[cls], fontsize=18)
+        if (cls=="FOLD"):
+            rel.fig.suptitle(dfcol_dict[cls], x=0.39, fontsize=18)
         plt.show()
         plt.close()
 
-def tmscore_precision_recall(ss_mat_path, query_protein_list, target_protein_list, todo_file_list, method_list, k):
+def map_pk(ss_mat_path, query_protein_fasta, target_protein_fasta, todo_file_list, method_list, k_list, special_protein_list=None):
     from sklearn.metrics import average_precision_score
     def precision_at_k(y_true, y_score, k, pos_label=1):
         from sklearn.utils import column_or_1d
@@ -667,14 +772,15 @@ def tmscore_precision_recall(ss_mat_path, query_protein_list, target_protein_lis
         
         return true_positives / k
     ss_mat = np.load(ss_mat_path)
-    query_protein_dic = get_protein_index_dic(get_pid_list(query_protein_list))
-    query_protein_list = get_pid_list(query_protein_list)
-    target_protein_dic = get_protein_index_dic(get_pid_list(target_protein_list))
-    target_protein_list = get_pid_list(target_protein_list)
+
+    query_protein_list, _ = read_fasta(query_protein_fasta)
+    query_protein_index_dic = get_protein_index_dic(query_protein_list)
+    target_protein_list, _ = read_fasta(target_protein_fasta)
+    target_protein_index_dic = get_protein_index_dic(target_protein_list)
 
     df_dict = {}
-    df_dict['MAP'] = []
-    df_dict['P@k'] = []
+    df_dict['metric'] = []
+    df_dict['score'] = []
     df_dict['method'] = []
 
     true_list = np.where(ss_mat>0.5, 1, 0)
@@ -684,14 +790,16 @@ def tmscore_precision_recall(ss_mat_path, query_protein_list, target_protein_lis
             print(f'{todo_file} does not exist!')
             continue
         
-        prefilter_list = get_prefilter_list_without_self(todo_file)
+        search_list = get_search_list_without_self(todo_file)
         predict_tmscore_mat = np.zeros((len(query_protein_list), len(target_protein_list)), dtype=np.float64)
-        for pair in tqdm(prefilter_list):
-            protein_id1 = query_protein_dic[pair[0][0]]
-            protein_id2 = target_protein_dic[pair[0][1]]
+        for pair in tqdm(search_list):
+            protein_id1 = query_protein_index_dic[pair[0][0]]
+            protein_id2 = target_protein_index_dic[pair[0][1]]
             predict_tmscore_mat[protein_id1][protein_id2] = pair[1]
         
-        sum_p_at_k = 0
+        sum_p_at_k = []
+        for i in range(len(k_list)):
+            sum_p_at_k.append(0)
         sum_average_precision = 0
         good_query = 0
         for query_index in range(len(query_protein_list)):
@@ -699,42 +807,50 @@ def tmscore_precision_recall(ss_mat_path, query_protein_list, target_protein_lis
             if len(np.nonzero(np.where(true_query_result>0.5, 1, 0))[0]) == 0:
                 continue
             predict_query_result = predict_tmscore_mat[query_index]
-            sum_average_precision += average_precision_score(true_query_result, predict_query_result, average="micro")
-            sum_p_at_k += precision_at_k(true_query_result, predict_query_result, k=k)
-            good_query += 1
+            if special_protein_list is not None:
+                protein_id = query_protein_list[query_index]
+                if protein_id in special_protein_list:
+                    sum_average_precision += average_precision_score(true_query_result, predict_query_result, average="micro")
+                    for i in range(len(k_list)):
+                        sum_p_at_k[i] += precision_at_k(true_query_result, predict_query_result, k=k_list[i])
+                    good_query += 1
+            else:
+                sum_average_precision += average_precision_score(true_query_result, predict_query_result, average="micro")
+                for i in range(len(k_list)):
+                    sum_p_at_k[i] += precision_at_k(true_query_result, predict_query_result, k=k_list[i])
+                good_query += 1
         MAP = sum_average_precision/good_query
-        p_at_k = sum_p_at_k/good_query
-        df_dict['MAP'].append(MAP)
-        df_dict['P@k'].append(p_at_k)
-        df_dict['method'].append(method_list[index])
         print(f"MAP of {method_list[index]}:{MAP}")
-        print(f"P@{k} of {method_list[index]}:{p_at_k}")
-        print(f"Good query = {good_query}")
+        df_dict['metric'].append('MAP')
+        df_dict['score'].append(MAP)
+        df_dict['method'].append(method_list[index])
 
-def plddt_statistics(protein_list_path, fig_name):
-    avg_plddt_array = []
-    with open(f"{protein_list_path}", 'r') as handle:
-        for line in handle:
-            line_list = line.strip().split(' ')
-            plddt = eval(line_list[1])
-            avg_plddt_array.append(plddt)
-    avg_plddt_array = np.asarray(avg_plddt_array)
+        for i in range(len(k_list)):
+            p_at_k = sum_p_at_k[i]/good_query
+            print(f"P@{k_list[i]} of {method_list[index]}:{p_at_k}")
+            df_dict['metric'].append(f'P@{k_list[i]}')
+            df_dict['score'].append(p_at_k)
+            df_dict['method'].append(method_list[index])
+    
+    return df_dict
 
-    ax = sns.displot(avg_plddt_array, bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], linewidth=0)
-    ax.set(xlim=(0, 100))
-    plt.xticks([0, 10, 30, 50, 70, 90], fontsize=18)
-    plt.yticks(fontsize=18)
-    plt.xlabel('Avg. pLDDT', fontsize=18)
-    plt.ylabel('Count', fontsize=18)
-    plt.tight_layout()
-    make_parent_dir(fig_name)
-    plt.savefig(fig_name)
+def map_pk_plot(df_dict, color_dict, legend):
+    plt.rcParams.update(plt.rcParamsDefault)
+    ax = sns.barplot(data=df_dict, x="metric", y="score", hue="method", palette=color_dict.values())
+    if legend:
+        sns.move_legend(ax, "center left", bbox_to_anchor=(1, 0.5))
+    else:
+        ax.get_legend().remove()
+
+    plt.ylabel('Score', fontsize=18)
+    plt.ylim(0, 1.0)
+    plt.xticks(fontsize=18)
+    plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=18)
     plt.show()
     plt.close()
 
-def scope_similarity_statistics(similarity_file, fold_file, plot_name):
+def scope_similarity_statistics(similarity_file, fold_file, check_set):
     plt.rcParams.update(plt.rcParamsDefault)
-    check_set = set((0.2, 0.3, 0.4, 0.5, 0.6))
     fold_dict = {}
     fold_similarity_list = []
     same_different_list = []
@@ -746,8 +862,8 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     probability["Similarity"] = []
     probability["Posterior Probability"] = []
     probability["Type"] = []
-    for i in range(101):
-        x_axis = i / 100
+    for i in range(1001):
+        x_axis = i / 1000
         p_similarity_same_fold[x_axis] = 0
         p_similarity_different_fold[x_axis] = 0
 
@@ -762,11 +878,11 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     with open(similarity_file) as fp:
         for line in tqdm(fp):
             line_list = line.split()
-            protein1 = line_list[0]
-            protein2 = line_list[1]
-            similarity = int(eval(line_list[2])*100) / 100
+            query_protein = line_list[0]
+            target_protein = line_list[1]
+            similarity = int(eval(line_list[2])*1000) / 1000
             fold_similarity_list.append(similarity)
-            if (fold_dict[protein1] != fold_dict[protein2]):
+            if (fold_dict[query_protein] != fold_dict[target_protein]):
                 same_different_list.append("Different Folds")
                 different_fold_sum += 1
                 p_similarity_different_fold[similarity] += 1
@@ -785,21 +901,22 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
 
     p_f_tm = 0
     p_not_f_tm = 1
-    for i in range(1, 101):
-        x_axis = i / 100
+    for i in range(1, 1001):
+        x_axis = i / 1000
         p_tm_f = p_similarity_same_fold[x_axis] / same_fold_sum
         p_tm_not_f = p_similarity_different_fold[x_axis] / different_fold_sum
         if ((p_tm_f!=0) or (p_tm_not_f!=0)):
             p_f_tm = (p_tm_f*p_same_fold) / (p_tm_f*p_same_fold+p_tm_not_f*p_different_fold)
             p_not_f_tm = (p_tm_not_f*p_different_fold) / (p_tm_f*p_same_fold+p_tm_not_f*p_different_fold)
 
-        probability["Similarity"].append(x_axis)
-        probability["Posterior Probability"].append(p_f_tm)
-        probability["Type"].append("Same Fold")
+        if (i % 10 == 0):
+            probability["Similarity"].append(x_axis)
+            probability["Posterior Probability"].append(p_f_tm)
+            probability["Type"].append("Same Fold")
 
-        probability["Similarity"].append(x_axis)
-        probability["Posterior Probability"].append(p_not_f_tm)
-        probability["Type"].append("Different Fold")
+            probability["Similarity"].append(x_axis)
+            probability["Posterior Probability"].append(p_not_f_tm)
+            probability["Type"].append("Different Fold")
 
         if x_axis in check_set:
             print(f"Similarity = {x_axis}, Same Fold Posterior Probability = {p_f_tm}")
@@ -811,16 +928,13 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     ax = sns.relplot(data=df, x="Similarity", y="Probability", hue='Type', style="Type", kind="line", legend='brief')
     plt.setp(ax._legend.get_texts(), fontsize='18')
     legend = ax._legend
-    legend.set_bbox_to_anchor((0.85, 0.5))
+    legend.set_bbox_to_anchor((0.55, 0.5))
     legend.set_title('')
 
     plt.ylabel('Posterior Probability', fontsize=18)
     plt.xlabel('Similarity', fontsize=18)
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
-    fig_name = f"{plot_name}1.png"
-    make_parent_dir(fig_name)
-    plt.savefig(fig_name)
     plt.show()
     plt.close()
 
@@ -844,11 +958,51 @@ def scope_similarity_statistics(similarity_file, fold_file, plot_name):
     ax.despine(bottom=True, left=True)
     #add legend
     ax.add_legend(title='', fontsize=20)
-    #ax.add_legend(title='Type')
     plt.xlim(0,1)
     plt.xticks([0, 0.5, 1], fontsize=20)
-    fig_name = f"{plot_name}2.png"
-    make_parent_dir(fig_name)
-    plt.savefig(fig_name)
+    plt.show()
+    plt.close()
+
+#def server_time(species, sex_counts):
+def server_time(methods, time_counts):
+    from matplotlib.patches import Patch
+
+    time_part_list = list(time_counts.keys())
+    x = np.arange(len(methods)) * 3  # the label locations
+    width = 0.5  # the width of the bars
+    multiplier = 0
+
+    fig, ax = plt.subplots(layout='constrained')
+
+    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']  # Get the default color cycle
+
+    legend_colors = color_cycle[:4]  # Choose the first four colors for the legend
+
+    legend_patches = []  # Store legend patches
+
+    for query_count in range(4):
+        legend_patches.append(Patch(color=legend_colors[query_count]))
+
+    for query_count in range(4):
+        offset = width * multiplier
+        bottom = [0,0]
+        for part, time_list in time_counts.items():
+            height = [time_list[methods[0]][query_count], time_list[methods[1]][query_count]]
+            rects = ax.bar(x + offset, height, width, label=part, bottom=bottom, color=legend_colors[time_part_list.index(part)])
+            if (part == 'Alignment'):
+                ax.bar_label(rects, [10**query_count, 10**query_count],
+                    padding=3, color='black', fontweight='bold')
+            for i in range(len(bottom)):
+                bottom[i] += height[i]
+        multiplier += 1
+
+    ax.set_ylabel('Time')
+    ax.set_xticks(x + width * (len(time_counts) - 1) / 2)  # Adjust x-axis tick positions
+    ax.set_xticklabels(methods)
+
+    # Create a custom legend with the desired labels and colors
+    ax.legend(handles=legend_patches, labels=time_counts.keys(), loc='upper center', ncols=2)
+
+    ax.set_ylim(0, 2500)
     plt.show()
     plt.close()

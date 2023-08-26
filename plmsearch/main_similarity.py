@@ -6,250 +6,195 @@ Created on 2021/10/24
 import os
 import time
 import torch
-import torch.nn.functional as F
 import pickle
 import torch.nn as nn
 import argparse
 from tqdm import tqdm, trange
 from logzero import logger
-from plmsearch_util.esm_ss_predict import esm_ss_predict_tri
-from plmsearch_util.esm_similarity_filter import esm_similarity_filiter
-from plmsearch_util.util import get_prefilter_list
+from plmsearch_util.model import plmsearch
+from plmsearch_util.util import get_search_list, dot_product, cos_similarity, euclidean_similarity, tensor_to_list
 
-def esm_ss_predict_sort(input_prefilter_result, threshold, nocos, query_esm_result, target_esm_result, save_model_path, device_id):
-    
-    def threshold_filter(protein1_list, protein2_list, nocos, device):        
-        x0_tensor = []
-        x1_tensor = []
-        for index in range(len(protein1_list)):
-            x0_tensor.append(query_embedding_dic[protein1_list[index]])
-            x1_tensor.append(target_embedding_dic[protein2_list[index]])
-        x0_tensor = torch.stack(x0_tensor)
-        x1_tensor = torch.stack(x1_tensor)
-        x0_tensor = x0_tensor.to(device)
-        x1_tensor = x1_tensor.to(device)
-        predict_score_tensor = model(x0_tensor, x1_tensor)
-        if (nocos == False):
-            cos_tensor = F.cosine_similarity(x0_tensor, x1_tensor)
-            predict_score_tensor = predict_score_tensor * cos_tensor
-            cos_tensor = cos_tensor.tolist()
-        predict_score_tensor = predict_score_tensor.tolist()
-
-        for index in range(len(protein1_list)):
-            protein1 = protein1_list[index]
-            protein2 = protein2_list[index]
-
-            predict_score = predict_score_tensor[index]
-            if (nocos == False):
-                if (cos_tensor[index] == 1):
-                    predict_score = 1
-
-            if ((threshold!= None) and (predict_score < threshold)):
-                continue
-            else:
-                protein_pair_dict[protein1].append((protein2, predict_score))
-
-    model = esm_ss_predict_tri(embed_dim = 1280)
-    model.load_pretrained(save_model_path)
-    model.eval()
-
-    ## set the device
-    if (device_id == None or device_id == []):
-        print("None of GPU is selected.")
-        device = "cpu"
-        model.to(device)
-    else:
-        if torch.cuda.is_available()==False:
-            print("GPU selected but none of them is available.")
-            device = "cpu"
-            model.to(device)
-        else:
-            print("We have", torch.cuda.device_count(), "GPUs in total!, we will use as you selected")
-            model = nn.DataParallel(model, device_ids = device_id)
-            device = f'cuda:{device_id[0]}'
-            model.to(device)
-
+def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, nocos, search_dict):
     with torch.no_grad():
-        with open(query_esm_result, 'rb') as handle:
-            query_embedding_dic = pickle.load(handle)
-        with open(target_esm_result, 'rb') as handle:
-            target_embedding_dic = pickle.load(handle)
+        query_proteins = list(query_embedding_dic.keys())
+        query_embedding = torch.stack([query_embedding_dic[key] for key in query_proteins])
+        query_embedding = query_embedding.to(device)
+
+        target_proteins = list(target_embedding_dic.keys())
+        target_embedding = torch.stack([target_embedding_dic[key] for key in target_proteins])
+        target_embedding = target_embedding.to(device)
+
+        similarity_dict = {}
+        for protein in query_proteins:
+            similarity_dict[protein] = {}
+
+        if (nocos == False):
+            cos_matrix = cos_similarity(query_embedding, target_embedding)
+            cos_matrix_list = tensor_to_list(cos_matrix)
+        
+        query_embedding = model(query_embedding)
+        sim_matrix = dot_product(query_embedding, target_embedding)
+        sim_matrix_list = tensor_to_list(sim_matrix)
+
+        if (nocos == True):
+            for i, query_protein in enumerate(query_proteins):
+                for j in range(len(sim_matrix_list[i])):
+                    similarity_dict[query_protein][target_proteins[j]] = sim_matrix_list[i][j]
+        else:
+            for i, query_protein in enumerate(query_proteins):
+                for j in range(len(sim_matrix_list[i])):
+                    similarity_dict[query_protein][target_proteins[j]] = cos_matrix_list[i][j] if (cos_matrix_list[i][j]>0.997) else cos_matrix_list[i][j] * sim_matrix_list[i][j]
 
         protein_pair_dict = {}
-        for protein in query_embedding_dic:
+        for protein in query_proteins:
             protein_pair_dict[protein] = []
-        
-        batch_size = 10000
-        batch_count = 0
-        protein1_list = []
-        protein2_list = []
-        if (input_prefilter_result == None):
-            for protein1 in tqdm(query_embedding_dic, desc = "query protein list"):
-                for protein2 in target_embedding_dic:
-                    protein1_list.append(protein1)
-                    protein2_list.append(protein2)
-                    batch_count += 1
-                    if (batch_count == batch_size):
-                        threshold_filter(protein1_list, protein2_list, nocos, device)
-                        batch_count = 0
-                        protein1_list = []
-                        protein2_list = []
-            if (protein1_list != []):
-                threshold_filter(protein1_list, protein2_list, nocos, device) #solve the left
-                batch_count = 0
-                protein1_list = []
-                protein2_list = []
+
+        if (search_dict == None):
+            for query_protein in query_proteins:
+                for target_protein in similarity_dict[query_protein]:
+                    protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
+                protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
         else:
-            prefilter_list = get_prefilter_list(input_prefilter_result)
-            logger.info(f"prefilter num = {len(prefilter_list)}")
-            for index in range(len(prefilter_list)):
-                protein1_list.append(prefilter_list[index][0][0])
-                protein2_list.append(prefilter_list[index][0][1])
-                batch_count += 1
-                if (batch_count == batch_size):
-                    threshold_filter(protein1_list, protein2_list, nocos, device)
-                    batch_count = 0
-                    protein1_list = []
-                    protein2_list = []
-            if (protein1_list != []):
-                threshold_filter(protein1_list, protein2_list, nocos, device) #solve the left
-                batch_count = 0
-                protein1_list = []
-                protein2_list = []
+            for query_protein in query_proteins:
+                for target_protein in search_dict[query_protein]:
+                    protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
+
             no_pfam_list = []
-            for protein1 in tqdm(query_embedding_dic, desc = "query protein list"):
-                if (protein_pair_dict[protein1] == []) or ((len(protein_pair_dict[protein1]) == 1) and (protein_pair_dict[protein1][0][1] == 1)):
-                    no_pfam_list.append(protein1)
-                    protein_pair_dict[protein1] = []
-                    for protein2 in target_embedding_dic:
-                        protein1_list.append(protein1)
-                        protein2_list.append(protein2)
-                        batch_count += 1
-                        if (batch_count == batch_size):
-                            threshold_filter(protein1_list, protein2_list, nocos, device)
-                            batch_count = 0
-                            protein1_list = []
-                            protein2_list = []
-            if (protein1_list != []):
-                threshold_filter(protein1_list, protein2_list, nocos, device) #solve the left
-                batch_count = 0
-                protein1_list = []
-                protein2_list = []
-    
-    for query_protein in query_embedding_dic:
-        protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
-    logger.info(f'Sort end.')
+            for query_protein in query_proteins:
+                if (protein_pair_dict[query_protein] == []) or ((len(protein_pair_dict[query_protein]) == 1) and (protein_pair_dict[query_protein][0][1] >= 0.9999)):
+                    no_pfam_list.append(query_protein)
+                    protein_pair_dict[query_protein] = []
+                    for target_protein in target_proteins:
+                        protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
+
+            for query_protein in query_proteins:
+                protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
 
     return protein_pair_dict
 
-def esm_similarity_sort(query_esm_result, target_esm_result, device_id, mode = 'mse'):
-    with open(query_esm_result, 'rb') as handle:
-        query_embedding_dic = pickle.load(handle)
-    with open(target_esm_result, 'rb') as handle:
-        target_embedding_dic = pickle.load(handle)
-    
-    ## set the device
-    if (device_id == None or device_id == []):
-        print("None of GPU is selected.")
-        device = "cpu"
-    else:
-        if torch.cuda.is_available()==False:
-            print("GPU selected but none of them is available.")
-            device = "cpu"
-        else:
-            print("We have", torch.cuda.device_count(), "GPUs in total!, we will use as you selected")
-            device = f'cuda:{device_id[0]}'
-
-    esm_example = esm_similarity_filiter()
-
-    with torch.no_grad():
-        x0 = []
-        x1 = []
-        for protein1 in tqdm(query_embedding_dic, desc = "query protein list"):
-            for protein2 in target_embedding_dic:
-                x0.append(protein1)
-                x1.append(protein2)
-
-        protein_pair_dict = {}
-        for protein in query_embedding_dic:
-            protein_pair_dict[protein] = []
-
-        for index in trange(len(x0), desc = "get esm identity"):
-            protein1 = x0[index]
-            protein2 = x1[index]
-            x1_tensor = query_embedding_dic[protein1]
-            x2_tensor = target_embedding_dic[protein2]
-            x1_tensor = x1_tensor.to(device)
-            x2_tensor = x2_tensor.to(device)
-            if (mode == 'mse'):
-                predict_score = esm_example.mse_mean_esm_identity_compute(x1_tensor, x2_tensor).item()
-            elif (mode == 'cos'):
-                predict_score = esm_example.cos_mean_esm_identity_compute(x1_tensor, x2_tensor).item()
-            else:
-                print(f'Wrong Mode {mode}!!!')
-                return
-            protein_pair_dict[protein1].append((protein2, predict_score))
-    
+def esm_similarity_search(query_embedding_dic, target_embedding_dic, device, mode = 'cos'):    
+    protein_pair_dict = {}
     for protein in query_embedding_dic:
-        protein_pair_dict[protein] = sorted(protein_pair_dict[protein], key=lambda x:x[1], reverse=True)
-    logger.info(f'Sort end.')
+        protein_pair_dict[protein] = []
+
+    query_proteins = list(query_embedding_dic.keys())
+    query_embedding = torch.stack([query_embedding_dic[key] for key in query_proteins])
+    query_embedding = query_embedding.to(device)
+
+    target_proteins = list(target_embedding_dic.keys())
+    target_embedding = torch.stack([target_embedding_dic[key] for key in target_proteins])
+    target_embedding = target_embedding.to(device)
+
+    if mode == "cos":
+        sim_matrix = cos_similarity(query_embedding, target_embedding)
+    else:
+        sim_matrix = euclidean_similarity(query_embedding, target_embedding)
+    sim_matrix_list = tensor_to_list(sim_matrix)
+    for i, query_protein in enumerate(query_proteins):
+        protein_pair_dict[query_protein] = [(target_proteins[j], sim_matrix_list[i][j]) for j in range(len(sim_matrix_list[i]))]
+        protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
     return protein_pair_dict
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     #input
-    parser.add_argument('-qer', '--query_esm_result', type=str)
-    parser.add_argument('-ter', '--target_esm_result', type=str)
+    parser.add_argument('-iqe', '--input_query_embedding', type=str)
+    parser.add_argument('-ite', '--input_target_embedding', type=str)
 
     #sort methods choose
-    parser.add_argument('-smp', '--save_model_path', type=str, default=None, help="Esm_ss_predict model path.")
-    parser.add_argument('-m', '--mode', type=str, default='cos', help="Mean esm result.")
-    parser.add_argument('-ipr','--input_prefilter_result', type=str, default=None, help="Input structurepair list name, sort based on it.")
-    parser.add_argument('-nocos', '--ss_predictor_without_cos', action='store_true', help="(Optional) Whether to use ss_predictor * cos")
+    parser.add_argument('-smp', '--save_model_path', type=str, default=None, help="plmsearch model path.")
+    parser.add_argument('-m', '--mode', type=str, default='cos')
+    parser.add_argument('-isr','--input_search_result', type=str, default=None)
+    parser.add_argument('-nocos', '--ss_predictor_without_cos', action='store_true', help="(Optional) Whether to use cos")
 
     #output
-    parser.add_argument('-opr','--output_prefilter_result', type=str)
+    parser.add_argument('-osr','--output_search_result', type=str)
 
     #parameter
     parser.add_argument('-d', '--device-id', default=[0], nargs='*', help='gpu device list, if only cpu then set it None or empty')
-    parser.add_argument('-t', '--threshold', type=float, default=None, help="Threshold. Choose the threshold you want to filter pairs")
 
     args = parser.parse_args()
     #start
     time_start=time.time()
 
-    #get sorted pairlist
-    if (args.save_model_path != None):
-        prefilter_result = esm_ss_predict_sort(args.input_prefilter_result, args.threshold, args.ss_predictor_without_cos, args.query_esm_result, args.target_esm_result, args.save_model_path, args.device_id)
-    else:
-        prefilter_result = esm_similarity_sort(args.query_esm_result, args.target_esm_result, args.device_id, mode=args.mode)
+    with open(args.input_query_embedding, 'rb') as handle:
+        query_embedding_dic = pickle.load(handle)
+    with open(args.input_target_embedding, 'rb') as handle:
+        target_embedding_dic = pickle.load(handle)
     
-    #output prefilter_result
-    if (args.output_prefilter_result != None):
-        output_prefilter_result = args.output_prefilter_result
+    time_embedding_load=time.time()
+    print('Embedding load time cost:', time_embedding_load-time_start, 's')
+
+    ## set the device
+    if (args.device_id == None or args.device_id == []):
+        print("None of GPU is selected.")
+        device = "cpu"
+    else:
+        if torch.cuda.is_available()==False:
+            print("GPU selected but none of them is available.")
+            device = "cpu"
+        else:
+            print("We have", torch.cuda.device_count(), "GPUs in total!, we will use as you selected")
+            device = f'cuda:{args.device_id[0]}'
+
+    if (args.save_model_path != None):
+        model = plmsearch(embed_dim = 1280)
+        model.load_pretrained(args.save_model_path)
+        model.eval()
+        if (device != "cpu"):
+            model = nn.DataParallel(model, device_ids = args.device_id)
+        model.to(device)
+
+    #output search_result
+    if (args.output_search_result != None):
+        output_search_result = args.output_search_result
     else:
         #get default result_path
-        result_path = ''.join([x+'/' for x in args.query_esm_result.split('/')[:-1]]) + 'prefilter_result/'
+        result_path = ''.join([x+'/' for x in args.input_query_embedding.split('/')[:-1]]) + 'search_result/'
         os.makedirs(result_path, exist_ok=True)
-        if (args.input_prefilter_result != None):
+        if (args.input_search_result != None):
             result_path += f"plmsearch"
-            if (args.threshold != None):
-                result_path += f"_{args.threshold}"
         elif (args.save_model_path != None):
             result_path += f"ss_predictor"
-            if (args.threshold != None):
-                result_path += f"_{args.threshold}"
-            if (args.ss_predictor_without_cos == False):
-                result_path += f"_cos"
+            if (args.ss_predictor_without_cos == True):
+                result_path += f"_without_cos"
         else:
             result_path += f"{args.mode}"
-        output_prefilter_result = result_path
+        output_search_result = result_path
+    with open(output_search_result, 'w') as f:
+        pass
 
-    with open(output_prefilter_result, 'w') as f:
-        for protein in prefilter_result:
-            for pair in prefilter_result[protein]:
-                f.write(f"{protein}\t{pair[0]}\t{pair[1]}\n")
+    batch_size = 50
+
+    search_dict = None
+    if (args.input_search_result != None):
+        search_list = get_search_list(args.input_search_result)
+        logger.info(f"presearch num = {len(search_list)}")
+        search_dict = {}
+        for query_protein in list(query_embedding_dic.keys()):
+            search_dict[query_protein] = []
+        for index in range(len(search_list)):
+            query_protein = search_list[index][0][0]
+            target_protein = search_list[index][0][1]
+            search_dict[query_protein].append(target_protein)
+
+    query_keys_all = list(query_embedding_dic.keys())
+
+    for i in trange(0, len(query_keys_all), batch_size, desc="Search query proteins batch by batch"):
+        batch_keys = query_keys_all[i:i+batch_size]
+        batch_query_embedding_dic = {k: query_embedding_dic[k] for k in batch_keys}
+
+        #get sorted pairlist
+        if (args.save_model_path != None):
+            search_result = plmsearch_search(batch_query_embedding_dic, target_embedding_dic, device, model, args.ss_predictor_without_cos, search_dict)
+        else:
+            search_result = esm_similarity_search(batch_query_embedding_dic, target_embedding_dic, device, mode=args.mode)
+
+        with open(output_search_result, 'a') as f:
+            for protein in search_result:
+                for pair in search_result[protein]:
+                    f.write(f"{protein}\t{pair[0]}\t{pair[1]}\n")
     
     time_end=time.time()
 
-    print('Esm embedding generate time cost:', time_end-time_start, 's')
+    print('Search time cost:', time_end-time_embedding_load, 's')
