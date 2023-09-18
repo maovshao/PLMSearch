@@ -45,8 +45,8 @@ if __name__ == "__main__":
     #start
     time_start=time.time()
     print(time_start)
-    print("sudo perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile ./tmp.txt")
-    os.system("sudo perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile ./tmp.txt")
+    print("perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile ./tmp.txt")
+    os.system("perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile ./tmp.txt")
     txt_to_json(args.fasta_path, args.outfile_path)
     #structure pair_list make end
     time_end=time.time()

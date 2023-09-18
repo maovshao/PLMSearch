@@ -14,13 +14,11 @@ conda install -c conda-forge scikit-learn
 conda install -c bioconda tmalign
 conda install ipykernel --update-deps --force-reinstall
 
-#To generate pfam by yourself(Use pfamscan)
+#To generate pfam (Use pfamscan)
 # You can follow the official steps described in "./plmsearch_data/PfamScan/README".
 # The following steps are just for recommend.
 sudo apt install perl-CPAN
-#(or)sudo yum install perl-CPAN
+sudo apt install hmmer
 sudo cpan Moose
 sudo cpan rlib
 sudo cpan IPC::Run
-sudo apt install hmmer
-#(or)sudo yum install perl-CPAN
