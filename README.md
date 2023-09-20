@@ -17,7 +17,7 @@ This is the implement of "PLMSearch: Protein language model powers accurate and 
 
 ## Webserver
 <span id="webserver"></span>
-Search your protein sequences in seconds using PLMSearch webserver: [issubmission.sjtu.edu.cn/PLMSearch/](https://issubmission.sjtu.edu.cn/PLMSearch/) 🚀
+Search your protein sequences in seconds using PLMSearch webserver: [dmiip.sjtu.edu.cn/PLMSearch/](https://dmiip.sjtu.edu.cn/PLMSearch/) 🚀
 
 ## Requirements
 <span id="requirements"></span>
