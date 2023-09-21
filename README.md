@@ -33,7 +33,7 @@ We provide acquirement approach of `Data` and `Protein language model`.
 
 ### Data
 <span id="PLMSearch-data"></span>
-We have released our experiment data in [plmsearch_data](https://issubmission.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz).
+We have released our experiment data in [plmsearch_data](https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz).
 ```bash
 # Put it in home directory
 tar zxvf plmsearch_data.tar.gz
