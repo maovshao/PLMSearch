@@ -38,12 +38,12 @@ def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, n
 
         if (nocos == True):
             for i, query_protein in enumerate(query_proteins):
-                for j in range(len(sim_matrix_list[i])):
-                    similarity_dict[query_protein][target_proteins[j]] = sim_matrix_list[i][j]
+                for j, target_protein in enumerate(target_proteins):
+                    similarity_dict[query_protein][target_protein] = sim_matrix_list[i][j]
         else:
             for i, query_protein in enumerate(query_proteins):
-                for j in range(len(sim_matrix_list[i])):
-                    similarity_dict[query_protein][target_proteins[j]] = cos_matrix_list[i][j] if (cos_matrix_list[i][j]>0.997) else cos_matrix_list[i][j] * sim_matrix_list[i][j]
+                for j, target_protein in enumerate(target_proteins):
+                    similarity_dict[query_protein][target_protein] = cos_matrix_list[i][j] if (cos_matrix_list[i][j]>0.997) else cos_matrix_list[i][j] * sim_matrix_list[i][j]
 
         protein_pair_dict = {}
         for protein in query_proteins:
@@ -53,7 +53,6 @@ def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, n
             for query_protein in query_proteins:
                 for target_protein in similarity_dict[query_protein]:
                     protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
-                protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
         else:
             for query_protein in query_proteins:
                 for target_protein in search_dict[query_protein]:
@@ -67,8 +66,8 @@ def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, n
                     for target_protein in target_proteins:
                         protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
 
-            for query_protein in query_proteins:
-                protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
+        for query_protein in query_proteins:
+            protein_pair_dict[query_protein] = sorted(protein_pair_dict[query_protein], key=lambda x:x[1], reverse=True)
 
     return protein_pair_dict
 
