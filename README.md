@@ -17,8 +17,11 @@ This is the implement of "PLMSearch: Protein language model powers accurate and 
 
 ## Webserver
 <span id="webserver"></span>
-PLMSearch webserver : Search your protein sequences in seconds  [dmiip.sjtu.edu.cn/PLMSearch/](https://dmiip.sjtu.edu.cn/PLMSearch/) 🚀
-PLMAlign  webserver : Align your protein sequences in seconds   [dmiip.sjtu.edu.cn/PLMAlign/](https://dmiip.sjtu.edu.cn/PLMAlign/)  :zap:
+PLMSearch  webserver : [dmiip.sjtu.edu.cn/PLMSearch](https://dmiip.sjtu.edu.cn/PLMSearch/) 🚀
+
+PLMAlign   webserver : [dmiip.sjtu.edu.cn/PLMAlign](https://dmiip.sjtu.edu.cn/PLMAlign/) :airplane:
+
+PLMAlign source code : [github.com/maovshao/PLMAlign](https://dmiip.sjtu.edu.cn/PLMAlign/) :helicopter:
 
 ## Requirements
 <span id="requirements"></span>
