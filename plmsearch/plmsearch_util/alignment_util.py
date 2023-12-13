@@ -1,14 +1,10 @@
-"""
-Created on 2021/10/24
-@author liuwei
-"""
 import os
 import re
 import multiprocessing
 from tqdm import tqdm
 from Bio import pairwise2 as pw2
 from Bio.pairwise2 import format_alignment
-from plmsearch_util.util import read_fasta
+from .util import read_fasta
 
 def pairwise_tmalign_util(pdb1_path, pdb2_path):
     cmd = f"TMalign {pdb1_path} {pdb2_path} -a"
@@ -54,13 +50,13 @@ def tmalign_util(query_structure_dir, target_structure_dir, input_search_result,
 
 def pairwise_sequence_align_util(sequence1, sequence2):
     global_align = pw2.align.globalxx(sequence1, sequence2)
-    best_sequence_identity = 0
-    align = global_align[0]
+    best_sequence_identity = -1
+    align = "None"
     for i in global_align:
         sequence_identity = i[2]/(i[4]-i[3])
-        best_sequence_identity = max(best_sequence_identity, sequence_identity)
         if (sequence_identity > best_sequence_identity):
             align = i
+            best_sequence_identity = sequence_identity
     return best_sequence_identity, format_alignment(*align)
 
 def sequence_align_util(query_fasta, target_fasta, input_search_result, cpu_num=56):

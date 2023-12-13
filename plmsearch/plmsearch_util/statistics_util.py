@@ -1,27 +1,18 @@
-"""
-Created on 2021/12/28
-@author liuwei
-"""
 import os
 from Bio.PDB import *
 from tqdm import tqdm, trange
 import json
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 import pickle
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from Bio import pairwise2 as pw2 
 import matplotlib.pyplot as plt
-from matplotlib_venn import venn3
-from sklearn.metrics import precision_recall_curve
-from sklearn.metrics import average_precision_score
 from sklearn.metrics import auc
-from plmsearch_util.model import plmsearch
-from plmsearch_util.util import get_index_protein_dic, get_protein_index_dic, read_fasta, get_search_list_without_self, make_parent_dir, pairwise_dot_product, pairwise_cos_similarity, pairwise_euclidean_similarity, tensor_to_list
-from plmsearch_util.alignment_util import pairwise_sequence_align_util
+from .model import plmsearch
+from .util import get_index_protein_dic, get_protein_index_dic, read_fasta, get_search_list_without_self, make_parent_dir, pairwise_dot_product, pairwise_cos_similarity, pairwise_euclidean_similarity, tensor_to_list
+from .alignment_util import pairwise_sequence_align_util
 
 def get_input_output(todo_dir_list, todo_name_list):
     todo_file_list = []
@@ -293,17 +284,22 @@ def esm_similarity_correlation_statistics(query_esm_filename, target_esm_filenam
     query_embedding = []
     target_embedding = []
 
-    statistics_num = 0
+    pairs = []
     for index1 in range(len(query_index_protein_dic)):
         for index2 in range(len(target_index_protein_dic)):
-            if (statistics_num>=100000):
-                break
-            if (query_index_protein_dic[index1] == target_index_protein_dic[index2]):
+            if query_index_protein_dic[index1] == target_index_protein_dic[index2]:
                 continue
-            statistics_num += 1
-            query_embedding.append(query_esm_dict[query_index_protein_dic[index1]].to(device))
-            target_embedding.append(target_esm_dict[target_index_protein_dic[index2]].to(device))
-            df_dict['structure_similarity'].append(ss_mat[index1][index2])
+            similarity = ss_mat[index1][index2]
+            pairs.append((index1, index2, similarity))
+
+    pairs.sort(key=lambda x: x[2], reverse=True)
+
+    selected_pairs = pairs[:100000]
+
+    for index1, index2, similarity in selected_pairs:
+        query_embedding.append(query_esm_dict[query_index_protein_dic[index1]].to(device))
+        target_embedding.append(target_esm_dict[target_index_protein_dic[index2]].to(device))
+        df_dict['structure_similarity'].append(similarity)
 
     query_embedding = torch.stack(query_embedding)
     target_embedding = torch.stack(target_embedding)
@@ -318,35 +314,32 @@ def esm_similarity_correlation_statistics(query_esm_filename, target_esm_filenam
     df = pd.DataFrame(dict(esm_similarity=np.asarray(df_dict['esm_similarity']), 
                 structure_similarity=np.asarray(df_dict['structure_similarity'])))
     df['esm_similarity'] = (df['esm_similarity']-df['esm_similarity'].min()) / (df['esm_similarity'].max()-df['esm_similarity'].min())
-    from scipy.stats import pearsonr, spearmanr
-    rho_p, _ = pearsonr(df['structure_similarity'], df['esm_similarity'])
-    print(f"Pearson correlation coefficient of {mode} = {rho_p}")
+    from scipy.stats import spearmanr
     rho_s, _ = spearmanr(df['structure_similarity'], df['esm_similarity'])
     print(f"Spearman correlation coefficient of {mode} = {rho_s}")
 
     ax = sns.lmplot(x="structure_similarity", y="esm_similarity", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
 
     # add text box for the statistics
-    stats = (f"Pearson's $\\rho$  = {rho_p:.4f}\n"
-             f"Spearman's $\\rho$ = {rho_s:.4f}")
+    stats = (f"Spearman's $\\rho$ = {rho_s:.4f}")
     bbox = dict(boxstyle='round', fc='blanchedalmond', ec='orange', alpha=0.5)
     from matplotlib.font_manager import FontProperties
     font = FontProperties(family='monospace', size=15)
-    plt.text(0.4, 0, stats, font=font, bbox=bbox)
+    plt.text(0.6, -0.05, stats, font=font, bbox=bbox)
 
     plt.xlabel('TM-score', fontsize=22)
     if (mode == 'cos'):
         plt.ylabel('COS', fontsize=22)
     if (mode == 'euclidean'):
         plt.ylabel('Euclidean', fontsize=22)
-    plt.xlim(-0.1,1.1)
-    plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
+    plt.xlim(0.3,1.1)
+    plt.xticks([0.4, 0.6, 0.8, 1.0], fontsize=22)
     plt.ylim(-0.1,1.1)
     plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
     plt.show()
     plt.close()
 
-def plmsearch_correlation_statistics(query_esm_filename, target_esm_filename, query_protein_fasta, target_protein_fasta, ss_mat_path, save_model_path, device_id, cos):
+def plmsearch_correlation_statistics(query_esm_filename, target_esm_filename, query_protein_fasta, target_protein_fasta, ss_mat_path, save_model_path, device_id):
     with open(query_esm_filename, 'rb') as handle:
         query_esm_dict = pickle.load(handle)
     with open(target_esm_filename, 'rb') as handle:
@@ -388,18 +381,23 @@ def plmsearch_correlation_statistics(query_esm_filename, target_esm_filename, qu
         query_raw_embedding = []
         target_embedding = []
 
-        statistics_num = 0
+        pairs = []
         for index1 in range(len(query_index_protein_dic)):
             for index2 in range(len(target_index_protein_dic)):
-                if (statistics_num>=100000):
-                    break
-                if (query_index_protein_dic[index1] == target_index_protein_dic[index2]):
+                if query_index_protein_dic[index1] == target_index_protein_dic[index2]:
                     continue
-                statistics_num += 1
-                query_embedding.append(model(query_esm_dict[query_index_protein_dic[index1]].to(device)))
-                query_raw_embedding.append(query_esm_dict[query_index_protein_dic[index1]].to(device))
-                target_embedding.append(target_esm_dict[target_index_protein_dic[index2]].to(device))
-                df_dict['structure_similarity'].append(ss_mat[index1][index2])
+                similarity = ss_mat[index1][index2]
+                pairs.append((index1, index2, similarity))
+
+        pairs.sort(key=lambda x: x[2], reverse=True)
+
+        selected_pairs = pairs[:100000]
+
+        for index1, index2, similarity in selected_pairs:
+            query_embedding.append(model(query_esm_dict[query_index_protein_dic[index1]].to(device)))
+            query_raw_embedding.append(query_esm_dict[query_index_protein_dic[index1]].to(device))
+            target_embedding.append(target_esm_dict[target_index_protein_dic[index2]].to(device))
+            df_dict['structure_similarity'].append(similarity)
 
         query_embedding = torch.stack(query_embedding)
         query_raw_embedding = torch.stack(query_raw_embedding)
@@ -407,33 +405,27 @@ def plmsearch_correlation_statistics(query_esm_filename, target_esm_filename, qu
         sim_score = tensor_to_list(pairwise_dot_product(query_embedding, target_embedding))
         cos_score = tensor_to_list(pairwise_cos_similarity(query_raw_embedding, target_embedding))
 
-        if cos:
-            df_dict['ss_predictor_score'] = [cos_score[i] if (cos_score[i]>0.997) else cos_score[i] * sim_score[i] for i in range(len(sim_score))]
-        else:
-            df_dict['ss_predictor_score'] = sim_score
+        df_dict['ss_predictor_score'] = [cos_score[i] if (cos_score[i]>0.995) else cos_score[i] * sim_score[i] for i in range(len(sim_score))]
 
         df = pd.DataFrame(dict(ss_predictor_score=np.asarray(df_dict['ss_predictor_score']), 
                 structure_similarity=np.asarray(df_dict['structure_similarity'])))
         df['ss_predictor_score'] = (df['ss_predictor_score']-df['ss_predictor_score'].min()) / (df['ss_predictor_score'].max()-df['ss_predictor_score'].min())
-        from scipy.stats import pearsonr, spearmanr
-        rho_p, _ = pearsonr(df['structure_similarity'], df['ss_predictor_score'])
-        print(f"Pearson correlation coefficient of SS-predictor{' (w/o COS)' if not cos else ''} = {rho_p}")
+        from scipy.stats import spearmanr
         rho_s, _ = spearmanr(df['structure_similarity'], df['ss_predictor_score'])
-        print(f"Spearman correlation coefficient of SS-predictor{' (w/o COS)' if not cos else ''} = {rho_s}")
+        print(f"Spearman correlation coefficient of SS-predictor = {rho_s}")
         g = sns.lmplot(x="structure_similarity", y="ss_predictor_score", data=df, scatter_kws={"alpha":0.2, "s":1}, line_kws={"color":"r","alpha":1,"lw":1.5})
 
         # add text box for the statistics
-        stats = (f"Pearson's $\\rho$  = {rho_p:.4f}\n"
-                 f"Spearman's $\\rho$ = {rho_s:.4f}")
+        stats = (f"Spearman's $\\rho$ = {rho_s:.4f}")
         bbox = dict(boxstyle='round', fc='blanchedalmond', ec='orange', alpha=0.5)
         from matplotlib.font_manager import FontProperties
         font = FontProperties(family='monospace', size=15)
-        plt.text(0.4, 0, stats, font=font, bbox=bbox)
+        plt.text(0.6, -0.05, stats, font=font, bbox=bbox)
 
         plt.xlabel('TM-score', fontsize=22)
-        plt.ylabel(f"SS-predictor{' (w/o COS)' if not cos else ''}", fontsize=22)
-        plt.xlim(-0.1,1.1)
-        plt.xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
+        plt.ylabel(f"SS-predictor", fontsize=22)
+        plt.xlim(0.3,1.1)
+        plt.xticks([0.4, 0.6, 0.8, 1.0], fontsize=22)
         plt.ylim(-0.1,1.1)
         plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0], fontsize=22)
         plt.show()
@@ -849,7 +841,7 @@ def map_pk_plot(df_dict, color_dict, legend):
     plt.show()
     plt.close()
 
-def scope_similarity_statistics(similarity_file, fold_file, check_set):
+def scope_similarity_statistics(similarity_file, fold_file, check_set, x_gap, is_dot_similarity = False):
     plt.rcParams.update(plt.rcParamsDefault)
     fold_dict = {}
     fold_similarity_list = []
@@ -881,6 +873,11 @@ def scope_similarity_statistics(similarity_file, fold_file, check_set):
             query_protein = line_list[0]
             target_protein = line_list[1]
             similarity = int(eval(line_list[2])*1000) / 1000
+            if is_dot_similarity:
+                similarity = similarity / 10
+                similarity = int(similarity*1000) / 1000
+                similarity = min(similarity, 1)
+                similarity = max(similarity, 0)
             fold_similarity_list.append(similarity)
             if (fold_dict[query_protein] != fold_dict[target_protein]):
                 same_different_list.append("Different Folds")
@@ -909,7 +906,10 @@ def scope_similarity_statistics(similarity_file, fold_file, check_set):
             p_f_tm = (p_tm_f*p_same_fold) / (p_tm_f*p_same_fold+p_tm_not_f*p_different_fold)
             p_not_f_tm = (p_tm_not_f*p_different_fold) / (p_tm_f*p_same_fold+p_tm_not_f*p_different_fold)
 
-        if (i % 10 == 0):
+        if is_dot_similarity:
+            x_axis = x_axis * 10
+
+        if (i % x_gap == 0):
             probability["Similarity"].append(x_axis)
             probability["Posterior Probability"].append(p_f_tm)
             probability["Type"].append("Same Fold")

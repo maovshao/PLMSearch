@@ -1,7 +1,3 @@
-"""
-Created on 2021/10/24
-@author liuwei
-"""
 import json
 import torch
 import numpy as np
@@ -11,16 +7,10 @@ from pathlib import Path
 import torch.nn.functional as F
 
 def get_index_protein_dic(protein_list):
-    protein_dic = {}
-    for index,protein in enumerate(protein_list):
-        protein_dic[index] = protein
-    return protein_dic
+    return {index: protein for index, protein in enumerate(protein_list)}
 
 def get_protein_index_dic(protein_list):
-    protein_dic = {}
-    for index,protein in enumerate(protein_list):
-        protein_dic[protein] = index
-    return protein_dic
+    return {protein: index for index, protein in enumerate(protein_list)}
 
 def read_fasta(fn_fasta):
     prot2seq = {}
@@ -63,7 +53,10 @@ def get_clan_result(pfam_result_file, clan_file_path):
     for prot in pfam_output:
         pfam_clan_output[prot] = set()
         for family in pfam_output[prot]:
-            pfam_clan_output[prot].add(family_clan_dict[family])
+            if family in family_clan_dict:
+                pfam_clan_output[prot].add(family_clan_dict[family])
+            else:
+                pfam_clan_output[prot].add(family)
     return pfam_clan_output
 
 def get_search_list(search_result):
@@ -115,13 +108,13 @@ def pairwise_cos_similarity(z1, z2):
     return F.cosine_similarity(z1, z2)
 
 def euclidean_similarity(z1, z2):
-    eps = 1e-8
+    eps = 1
     dist_matrix = torch.cdist(z1, z2)
     sim_matrix = 1 / (dist_matrix + eps)
     return sim_matrix
 
 def pairwise_euclidean_similarity(z1, z2):
-    eps = 1e-8
+    eps = 1
     mse_loss = F.mse_loss(z1, z2, reduction='none')
     mse_loss = mse_loss.sum(dim=1)
     similarity = 1 / (mse_loss + eps)

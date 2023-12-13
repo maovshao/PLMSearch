@@ -1,8 +1,3 @@
-"""
-Created on 2021/10/24
-@author liuwei
-"""
-
 import argparse
 from tqdm import tqdm
 from plmsearch_util.alignment_util import tmalign_util

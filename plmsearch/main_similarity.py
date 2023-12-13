@@ -1,8 +1,3 @@
-"""
-Created on 2021/10/24
-@author liuwei
-"""
-
 import os
 import time
 import torch
@@ -12,9 +7,9 @@ import argparse
 from tqdm import tqdm, trange
 from logzero import logger
 from plmsearch_util.model import plmsearch
-from plmsearch_util.util import get_search_list, dot_product, cos_similarity, euclidean_similarity, tensor_to_list
+from plmsearch_util.util import get_search_list, cos_similarity, euclidean_similarity, tensor_to_list
 
-def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, nocos, search_dict):
+def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, search_dict):
     with torch.no_grad():
         query_proteins = list(query_embedding_dic.keys())
         query_embedding = torch.stack([query_embedding_dic[key] for key in query_proteins])
@@ -28,22 +23,15 @@ def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, n
         for protein in query_proteins:
             similarity_dict[protein] = {}
 
-        if (nocos == False):
-            cos_matrix = cos_similarity(query_embedding, target_embedding)
-            cos_matrix_list = tensor_to_list(cos_matrix)
+        cos_matrix = cos_similarity(query_embedding, target_embedding)
+        cos_matrix_list = tensor_to_list(cos_matrix)
         
-        query_embedding = model(query_embedding)
-        sim_matrix = dot_product(query_embedding, target_embedding)
+        sim_matrix = model.predict(query_embedding, target_embedding)
         sim_matrix_list = tensor_to_list(sim_matrix)
 
-        if (nocos == True):
-            for i, query_protein in enumerate(query_proteins):
-                for j, target_protein in enumerate(target_proteins):
-                    similarity_dict[query_protein][target_protein] = sim_matrix_list[i][j]
-        else:
-            for i, query_protein in enumerate(query_proteins):
-                for j, target_protein in enumerate(target_proteins):
-                    similarity_dict[query_protein][target_protein] = cos_matrix_list[i][j] if (cos_matrix_list[i][j]>0.997) else cos_matrix_list[i][j] * sim_matrix_list[i][j]
+        for i, query_protein in enumerate(query_proteins):
+            for j, target_protein in enumerate(target_proteins):
+                similarity_dict[query_protein][target_protein] = cos_matrix_list[i][j] if (cos_matrix_list[i][j]>0.995) else cos_matrix_list[i][j] * sim_matrix_list[i][j]
 
         protein_pair_dict = {}
         for protein in query_proteins:
@@ -58,10 +46,8 @@ def plmsearch_search(query_embedding_dic, target_embedding_dic, device, model, n
                 for target_protein in search_dict[query_protein]:
                     protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
 
-            no_pfam_list = []
             for query_protein in query_proteins:
-                if (protein_pair_dict[query_protein] == []) or ((len(protein_pair_dict[query_protein]) == 1) and (protein_pair_dict[query_protein][0][1] >= 0.9999)):
-                    no_pfam_list.append(query_protein)
+                if (protein_pair_dict[query_protein] == []) or ((len(protein_pair_dict[query_protein]) == 1) and (protein_pair_dict[query_protein][0][1] >= 0.999)):
                     protein_pair_dict[query_protein] = []
                     for target_protein in target_proteins:
                         protein_pair_dict[query_protein].append((target_protein, similarity_dict[query_protein][target_protein]))
@@ -104,7 +90,6 @@ if __name__ == '__main__':
     parser.add_argument('-smp', '--save_model_path', type=str, default=None, help="plmsearch model path.")
     parser.add_argument('-m', '--mode', type=str, default='cos')
     parser.add_argument('-isr','--input_search_result', type=str, default=None)
-    parser.add_argument('-nocos', '--ss_predictor_without_cos', action='store_true', help="(Optional) Whether to use cos")
 
     #output
     parser.add_argument('-osr','--output_search_result', type=str)
@@ -140,8 +125,10 @@ if __name__ == '__main__':
         model = plmsearch(embed_dim = 1280)
         model.load_pretrained(args.save_model_path)
         model.eval()
+        model_methods = model
         if (device != "cpu"):
             model = nn.DataParallel(model, device_ids = args.device_id)
+            model_methods = model.module
         model.to(device)
 
     #output search_result
@@ -155,8 +142,6 @@ if __name__ == '__main__':
             result_path += f"plmsearch"
         elif (args.save_model_path != None):
             result_path += f"ss_predictor"
-            if (args.ss_predictor_without_cos == True):
-                result_path += f"_without_cos"
         else:
             result_path += f"{args.mode}"
         output_search_result = result_path
@@ -185,7 +170,7 @@ if __name__ == '__main__':
 
         #get sorted pairlist
         if (args.save_model_path != None):
-            search_result = plmsearch_search(batch_query_embedding_dic, target_embedding_dic, device, model, args.ss_predictor_without_cos, search_dict)
+            search_result = plmsearch_search(batch_query_embedding_dic, target_embedding_dic, device, model_methods, search_dict)
         else:
             search_result = esm_similarity_search(batch_query_embedding_dic, target_embedding_dic, device, mode=args.mode)
 

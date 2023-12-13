@@ -17,38 +17,25 @@ This is the implement of "PLMSearch: Protein language model powers accurate and 
 
 ## Webserver
 <span id="webserver"></span>
-Search your protein sequences in seconds using PLMSearch webserver: [dmiip.sjtu.edu.cn/PLMSearch/](https://dmiip.sjtu.edu.cn/PLMSearch/) 🚀
+PLMSearch webserver : Search your protein sequences in seconds  [dmiip.sjtu.edu.cn/PLMSearch/](https://dmiip.sjtu.edu.cn/PLMSearch/) 🚀
+PLMAlign  webserver : Align your protein sequences in seconds   [dmiip.sjtu.edu.cn/PLMAlign/](https://dmiip.sjtu.edu.cn/PLMAlign/)  :zap:
 
 ## Requirements
 <span id="requirements"></span>
 
-python 3.8 / biopython 1.78 / tqdm 4.64.1 / torch 1.7.1 / pandas 1.5.1
-seaborn 0.12.1 / logzero 1.7.0 / scikit-learn 0.24.2 / ipykernel 6.15.2 / pfamscan 1.6
-
-If you are a beginner, you can choose to follow the steps in [requirements.sh](requirements.sh).
+Follow the steps in [requirements.sh](requirements.sh).
 
 ## Data preparation
 <span id="data-preparation"></span>
-We provide acquirement approach of `Data` and `Protein language model`.
+We provide acquirement approach of `Data`.
 
 ### Data
 <span id="PLMSearch-data"></span>
 We have released our experiment data in [plmsearch_data](https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz).
 ```bash
-# Put it in home directory
+# Include experiment data, PLMSearch model, ESM-1b model, etc.
+wget https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz
 tar zxvf plmsearch_data.tar.gz
-```
-
-### Protein language model
-<span id="protein-language-model"></span>
-```bash
-# Download ESM-1b
-cd ./plmsearch/esm/
-mkdir saved_models && cd "$_"
-wget https://dl.fbaipublicfiles.com/fair-esm/models/esm1b_t33_650M_UR50S.pt
-wget https://dl.fbaipublicfiles.com/fair-esm/regression/esm1b_t33_650M_UR50S-contact-regression.pt
-# Go back to the raw directory 
-cd ../../..
 ```
 
 ## Reproduce all our experiments with only one file
@@ -58,10 +45,10 @@ cd ../../..
 
 **Notice: Detailed results are saved in** `scientist_figures/`.
 
-## Build PLMSearch locally
+## Run PLMSearch locally
 <span id="pipeline"></span>
 
-- Build PLMSearch locally by following the example in [pipeline.ipynb](pipeline.ipynb).
+- Run PLMSearch locally by following the example in [pipeline.ipynb](pipeline.ipynb).
 
 **Notice: the inputs and outputs of the example are saved in** `example/`.
 

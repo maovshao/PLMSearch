@@ -8,7 +8,6 @@ from plmsearch_util.util import read_fasta
 def txt_to_json(fasta_path, outfile_path):
     with open('./tmp.txt','r') as f1:
         data1=f1.readlines()
-        f1.close()
     os.system("rm -rf ./tmp.txt")
     results = []
     for line in data1:
@@ -30,12 +29,12 @@ def txt_to_json(fasta_path, outfile_path):
     dict={}
     for protein in protein_list:
         dict.setdefault(protein,{})
+    protein_list = set(protein_list)
     for item in data:
         if item[0] in protein_list:
             dict[item[0]].update({"".join(item[5]):""})
     with open(outfile_path,'w') as f1:
         json.dump(dict, f1, indent = 6)
-        f1.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

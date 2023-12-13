@@ -4,15 +4,12 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode/
 tmp/
-to_remove/
 plmsearch_data/
 
 scientist_figures/*
 !scientist_figures/workflow_img/
 
 example/search_result/
-
-plmsearch/esm/saved_models/
 
 # Junk #
 ########

@@ -1,8 +1,3 @@
-"""
-Created on 2021/10/24
-@author liuwei
-"""
-
 import os
 import argparse
 from tqdm import tqdm

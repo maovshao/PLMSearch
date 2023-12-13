@@ -8,15 +8,11 @@ import torch
 import time
 import pickle
 
-from esm import Alphabet, FastaBatchedDataset, ProteinBertModel, pretrained, MSATransformer
+from esm import FastaBatchedDataset, pretrained
 
 def embedding_generate(esm_model_path, fasta, embedding_result, nogpu):
     esm_model, alphabet = pretrained.load_model_and_alphabet(esm_model_path)
     esm_model.eval()
-    if isinstance(esm_model, MSATransformer):
-        raise ValueError(
-            "This script currently does not handle models with MSA input (MSA Transformer)."
-        )
 
     if torch.cuda.is_available() and not nogpu:
         esm_model = esm_model.cuda()
@@ -51,11 +47,12 @@ def embedding_generate(esm_model_path, fasta, embedding_result, nogpu):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     #input
-    parser.add_argument('-emp', '--esm_model_path', type=str, default='./plmsearch/esm/saved_models/esm1b_t33_650M_UR50S.pt', help="ESM model location")
+    parser.add_argument('-emp', '--esm_model_path', type=str, default='plmsearch_data/model/esm/esm1b_t33_650M_UR50S.pt', help="ESM model location")
     parser.add_argument('-f', '--fasta', type=str, help="Fasta file to generate esm_embedding")
 
     #output
     parser.add_argument('-e', '--embedding_result', type=str, help="Esm result to use in cluster")
+
     #parameter
     parser.add_argument("--nogpu", action="store_true", help="Do not use GPU even if available")
     args = parser.parse_args()
