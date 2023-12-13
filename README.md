@@ -21,7 +21,7 @@ PLMSearch  webserver : [dmiip.sjtu.edu.cn/PLMSearch](https://dmiip.sjtu.edu.cn/P
 
 PLMAlign   webserver : [dmiip.sjtu.edu.cn/PLMAlign](https://dmiip.sjtu.edu.cn/PLMAlign/) :airplane:
 
-PLMAlign source code : [github.com/maovshao/PLMAlign](https://dmiip.sjtu.edu.cn/PLMAlign/) :helicopter:
+PLMAlign source code : [github.com/maovshao/PLMAlign](https://github.com/maovshao/PLMAlign/) :helicopter:
 
 ## Requirements
 <span id="requirements"></span>
