@@ -26,7 +26,7 @@ PLMAlign source code : [github.com/maovshao/PLMAlign](https://github.com/maovsha
 ## Requirements
 <span id="requirements"></span>
 
-Follow the steps in [requirements.sh](requirements.sh).
+Follow the steps in [requirements.sh](requirements.sh)
 
 ## Data preparation
 <span id="data-preparation"></span>
@@ -44,14 +44,14 @@ tar zxvf plmsearch_data.tar.gz
 ## Reproduce all our experiments with only one file
 <span id="main"></span>
 
-- Reproduce all our experiments with good visualization by following the steps in [main.ipynb](main.ipynb).
+- Reproduce all our experiments with good visualization by following the steps in [main.ipynb](main.ipynb)
 
 **Notice: Detailed results are saved in** `scientist_figures/`.
 
 ## Run PLMSearch locally
 <span id="pipeline"></span>
 
-- Run PLMSearch locally by following the example in [pipeline.ipynb](pipeline.ipynb).
+- Run PLMSearch locally by following the example in [pipeline.ipynb](pipeline.ipynb)
 
 **Notice: the inputs and outputs of the example are saved in** `example/`.
 
