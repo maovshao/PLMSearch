@@ -45,7 +45,7 @@ class plmsearch_dataset:
             if d > 0.5:
                 high_indices.append((u, v))
                 high_count += 1
-            elif d < 0.5:
+            elif d <= 0.5:
                 low_indices.append((u, v))
                 low_count += 1
 
