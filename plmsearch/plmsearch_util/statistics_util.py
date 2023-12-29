@@ -880,11 +880,11 @@ def scope_similarity_statistics(similarity_file, fold_file, check_set, x_gap, is
                 similarity = max(similarity, 0)
             fold_similarity_list.append(similarity)
             if (fold_dict[query_protein] != fold_dict[target_protein]):
-                same_different_list.append("Different Folds")
+                same_different_list.append("Different")
                 different_fold_sum += 1
                 p_similarity_different_fold[similarity] += 1
             else:
-                same_different_list.append("Same Fold")
+                same_different_list.append("Same")
                 same_fold_sum += 1
                 p_similarity_same_fold[similarity] += 1
 
@@ -912,11 +912,11 @@ def scope_similarity_statistics(similarity_file, fold_file, check_set, x_gap, is
         if (i % x_gap == 0):
             probability["Similarity"].append(x_axis)
             probability["Posterior Probability"].append(p_f_tm)
-            probability["Type"].append("Same Fold")
+            probability["Type"].append("Same")
 
             probability["Similarity"].append(x_axis)
             probability["Posterior Probability"].append(p_not_f_tm)
-            probability["Type"].append("Different Fold")
+            probability["Type"].append("Different")
 
         if x_axis in check_set:
             print(f"Similarity = {x_axis}, Same Fold Posterior Probability = {p_f_tm}")
@@ -928,7 +928,7 @@ def scope_similarity_statistics(similarity_file, fold_file, check_set, x_gap, is
     ax = sns.relplot(data=df, x="Similarity", y="Probability", hue='Type', style="Type", kind="line", legend='brief')
     plt.setp(ax._legend.get_texts(), fontsize='18')
     legend = ax._legend
-    legend.set_bbox_to_anchor((0.55, 0.5))
+    legend.set_bbox_to_anchor((0.45, 0.5))
     legend.set_title('')
 
     plt.ylabel('Posterior Probability', fontsize=18)
