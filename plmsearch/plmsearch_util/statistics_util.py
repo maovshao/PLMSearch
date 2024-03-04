@@ -212,6 +212,9 @@ def precision_recall_statistics(ss_mat_path, query_protein_fasta, target_protein
 
     # Initialize the FacetGrid object
     df = pd.DataFrame(dict(score=np.asarray(score_array_all), file=np.asarray(file_array_all)))
+    output_path = ''.join([x+'/' for x in todo_fig_list[index].split('/')[:-1]]) + "source_data.xlsx"
+    df.to_excel(output_path, index=False)
+
     sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
     ax = sns.FacetGrid(df, row="file", hue="file")
 
@@ -940,6 +943,10 @@ def scope_similarity_statistics(similarity_file, fold_file, check_set, x_gap, is
 
     # Initialize the FacetGrid object
     df = pd.DataFrame(dict(score=np.asarray(fold_similarity_list), file=np.asarray(same_different_list)))
+    output_path = similarity_file + "_source_data.xlsx"
+    # Limitation from excel sheet
+    df_subset = df.iloc[:int(len(df) * 0.1)]
+    df_subset.to_excel(output_path, index=False)
     sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
     ax = sns.FacetGrid(df, row="file", hue="file")
 
