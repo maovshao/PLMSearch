@@ -9,14 +9,13 @@ This is the implement of "PLMSearch: Protein language model powers accurate and 
 * [Webserver](#webserver)
 * [Requirements](#requirements)
 * [Data preparation](#data-preparation)
-  * [Data](#PLMSearch-data)
-  * [Protein language model](#protein-language-model)
 * [Reproduce all our experiments with only one file](#main)
-* [Build PLMSearch locally](#pipeline)
+* [Run PLMSearch locally](#pipeline)
 * [Citation](#citation)
 
 ## Webserver
 <span id="webserver"></span>
+
 PLMSearch web server : [dmiip.sjtu.edu.cn/PLMSearch](https://dmiip.sjtu.edu.cn/PLMSearch/) 🚀
 
 PLMAlign  web server : [dmiip.sjtu.edu.cn/PLMAlign](https://dmiip.sjtu.edu.cn/PLMAlign/) :airplane:
@@ -30,10 +29,7 @@ Follow the steps in [requirements.sh](requirements.sh)
 
 ## Data preparation
 <span id="data-preparation"></span>
-We provide acquirement approach of `Data`.
 
-### Data
-<span id="PLMSearch-data"></span>
 We have released our experiment data in [plmsearch_data](https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz).
 ```bash
 # Include experiment data, PLMSearch model, ESM-1b model, etc.
