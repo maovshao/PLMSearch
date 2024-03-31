@@ -57,14 +57,4 @@ tar zxvf plmsearch_data.tar.gz
 
 ## Citation
 <span id="citation"></span>
-If you find the tool useful in your research, we ask that you cite the relevant paper:
-```bibtex
-@article {Liu2023.04.03.535375,
-  author = {Liu, Wei and Wang, Ziye and You, Ronghui and Xie, Chenghan and Wei, Hong and Xiong, Yi and Yang, Jianyi and Zhu, Shanfeng},
-  title = {Protein language model powers accurate and fast sequence search for remote homology},
-  year = {2023},
-  doi = {10.1101/2023.04.03.535375},
-  URL = {https://www.biorxiv.org/content/early/2023/04/05/2023.04.03.535375},
-  journal = {bioRxiv}
-}
-```
+Liu, W., Wang, Z., You, R. et al. PLMSearch: Protein language model powers accurate and fast sequence search for remote homology. Nat Commun 15, 2775 (2024). https://doi.org/10.1038/s41467-024-46808-5
