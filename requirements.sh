@@ -13,6 +13,7 @@ conda install -c conda-forge logzero
 conda install -c conda-forge scikit-learn
 conda install -c bioconda tmalign
 conda install ipykernel --update-deps --force-reinstall
+pip install fair-esm
 
 #To generate pfam (Use pfamscan)
 # You can follow the official steps described in "./plmsearch_data/PfamScan/README".
