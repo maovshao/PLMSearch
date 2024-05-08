@@ -5,10 +5,11 @@ import os
 import time
 from plmsearch_util.util import read_fasta
 
-def txt_to_json(fasta_path, outfile_path):
-    with open('./tmp.txt','r') as f1:
+def txt_to_json(fasta_path, tmp_path, outfile_path):
+    with open(tmp_path,'r') as f1:
         data1=f1.readlines()
-    os.system("rm -rf ./tmp.txt")
+    os.system(f"rm -rf {tmp_path}")
+
     results = []
     for line in data1:
         if line.isspace():
@@ -44,9 +45,13 @@ if __name__ == "__main__":
     #start
     time_start=time.time()
     print(time_start)
-    print("perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile ./tmp.txt")
-    os.system("perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile ./tmp.txt")
-    txt_to_json(args.fasta_path, args.outfile_path)
+    dir_path = os.path.dirname(args.outfile_path)
+    tmp_path = os.path.join(dir_path, 'tmp.txt')
+
+    command = "perl ./plmsearch_data/PfamScan/pfam_scan.pl -fasta " + args.fasta_path +" -dir ./plmsearch_data/Pfam_db -outfile " + tmp_path
+    print(command)
+    os.system(command)
+    txt_to_json(args.fasta_path, tmp_path, args.outfile_path)
     #structure pair_list make end
     time_end=time.time()
 
