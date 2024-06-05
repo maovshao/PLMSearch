@@ -1,6 +1,7 @@
 # PLMSearch
 
-- 2024.5.30 Update: We have uploaded the `Dataset of PLMSearch Web Server` in [Zenodo](https://zenodo.org/records/11393990). Enjoy it.
+- 2024.6.5 Update: We have uploaded the `Dataset of PLMSearch & PLMAlign` in [Zenodo](https://zenodo.org/records/11480660). 
+- 2024.5.30 Update: We have uploaded the `Dataset of PLMSearch Web Server` in [Zenodo](https://zenodo.org/records/11393990).
 
 This is the implement of "PLMSearch: Protein language model powers accurate and fast sequence search for remote homology". By using a protein language model, PLMSearch can achieve `a sensitivity close to SOAT structure search methods` while being versatile and fast because it is `only based on sequences`.
 
@@ -32,10 +33,11 @@ Follow the steps in [requirements.sh](requirements.sh)
 ## Data preparation
 <span id="data-preparation"></span>
 
-We have released our experiment data in [plmsearch_data](https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz).
+We have released our experiment data, which can be downloaded from [plmsearch_data](https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz) or [Zenodo](https://zenodo.org/records/11480660).
 ```bash
 # Include experiment data, PLMSearch model, ESM-1b model, etc.
-wget https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz
+# Use the following command or download it from https://zenodo.org/records/11480660
+wget https://dmiip.sjtu.edu.cn/PLMSearch/static/download/plmsearch_data.tar.gz  
 tar zxvf plmsearch_data.tar.gz
 ```
 
