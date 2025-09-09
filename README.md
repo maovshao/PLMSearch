@@ -58,3 +58,5 @@ tar zxvf plmsearch_data.tar.gz
 ## Citation
 <span id="citation"></span>
 Liu, W., Wang, Z., You, R. et al. PLMSearch: Protein language model powers accurate and fast sequence search for remote homology. Nat Commun 15, 2775 (2024). https://doi.org/10.1038/s41467-024-46808-5
+
+Liu, W. et al. (2025). PLMSearch and PLMAlign: Protein Language Model (PLM)-Based Homologous Protein Sequence Search and Alignment. In: KC, D.B. (eds) Large Language Models (LLMs) in Protein Bioinformatics. Methods in Molecular Biology, vol 2941. Humana, New York, NY. https://doi.org/10.1007/978-1-0716-4623-6_14
